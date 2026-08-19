@@ -549,7 +549,10 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         textView.backgroundColor = color
         ruler.gutterBackground = color
         ruler.needsDisplay = true
-        minimap.backgroundColor = color
+        // The strip is an instrument beside the document, not more document:
+        // on the same ground the two read as one surface with a gap in it, so
+        // it sits one step deeper (Theme.deepened).
+        minimap.backgroundColor = Theme.deepened(color)
     }
 
     // Live theme switch: syntax color is baked into the text storage as

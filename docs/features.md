@@ -191,7 +191,9 @@ app does.
 ### File viewer & navigation
 
 - **File viewer** — files open as tabs (deduped by path) with syntax highlighting, a
-  minimap, line numbers, go-to-line (⌘L), and orange marks on lines changed since HEAD.
+  minimap (on its own ground, one step deeper than the text, so the strip reads as an
+  instrument beside the document rather than more document), line numbers, go-to-line (⌘L),
+  and orange marks on lines changed since HEAD.
   Cmd-click a path in any terminal (with optional `:line`) to jump straight to it. Files are
   first-class tabs: every open (sidebar click, ⌘P, search hit, Cmd-click link) opens the
   file's own tab or re-activates it if the path is already open — files never load one on top
