@@ -1,7 +1,11 @@
 import Cocoa
 
 // The line-number gutter: draws the number of each visible line fragment's
-// first fragment, in the same font family as the document at a smaller size.
+// first fragment, at the document's own point size. The numbers used to run
+// two points smaller — a printing habit that reads as a mistake here, because
+// a line number sits on the same baseline as the code it names and the eye
+// compares the two directly. Blame text keeps its own smaller size: that is a
+// second column of prose, not a label on the line.
 final class LineNumberRulerView: NSRulerView, NSViewToolTipOwner {
     weak var textView: NSTextView?
     var textColor: NSColor = Theme.textFaint
@@ -100,7 +104,7 @@ final class LineNumberRulerView: NSRulerView, NSViewToolTipOwner {
 
     private var numberFont: NSFont {
         let base = textView?.font ?? NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-        return NSFont.monospacedDigitSystemFont(ofSize: max(8, base.pointSize - 2), weight: .regular)
+        return NSFont.monospacedDigitSystemFont(ofSize: base.pointSize, weight: .regular)
     }
 
     private var blameFont: NSFont {

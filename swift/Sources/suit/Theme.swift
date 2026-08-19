@@ -106,6 +106,27 @@ enum Theme {
             : blend(sessionBusy, toward: failed, fraction: (level - 50) / 50)
     }
 
+    /// One layer deeper than the ground handed in — the viewer's minimap strip
+    /// against the document beside it, in the spirit of `terminalBg` under the
+    /// chrome. A *fixed* step per channel rather than a percentage: the palettes
+    /// run from #F4F5F8 to #0C0E1A, and a percentage that separates the strip on
+    /// a light ground moves a near-black one by two levels, while one strong
+    /// enough for the dark themes turns a light theme's strip into a grey slab.
+    /// 0.045 is the step the palettes themselves take — it is about the distance
+    /// from `bg` to `barChrome` on the light themes and to `terminalBg` on the
+    /// dark ones. Alpha is carried through untouched, so a translucent pane
+    /// background stays translucent under the strip. A pure black ground (the
+    /// OLED palette) has nothing left to take, and the strip stays flush with
+    /// the document there.
+    static func deepened(_ ground: NSColor) -> NSColor {
+        guard let c = ground.usingColorSpace(.deviceRGB) else { return ground }
+        let step: CGFloat = 0.045
+        return NSColor(deviceRed: max(0, c.redComponent - step),
+                       green: max(0, c.greenComponent - step),
+                       blue: max(0, c.blueComponent - step),
+                       alpha: c.alphaComponent)
+    }
+
     /// `NSColor.blended` returns nil for colors it can't bring into a common
     /// space, so both ends are pinned to device RGB first and the start color
     /// is the fallback.
