@@ -6,7 +6,21 @@ import Cocoa
 // inside this view's own top edge; they moved out to the activity bar so they
 // survive a Cmd-B collapse, but the tab *model* stayed here — this view still
 // owns the enum, the rail order and the persisted selection, and the bar is a
-// dumb renderer of `selectedTab`. The Files tab is the FileBrowserView, whole;
+// dumb renderer of `selectedTab`.
+//
+// Since the materials redesign the panel is a *card*, not a slab: everything
+// lives in one rounded continuous-corner container (`card`) floating on the
+// window's well, the same shape language as the pane cards — frost inside,
+// 1pt hairline ring outside, wellInset margins on the edges the well shows
+// through (left, top, bottom). The right edge stays flush to this view's
+// bounds: the split divider next to it paints the well (SuitSplitView
+// .isWellSeam) and the pane tree adds its own wellInset, so the visible gap to
+// the first pane card comes out one hairline over the margin everywhere else —
+// close enough to read as the same gutter, without teaching RootContainerView
+// per-edge insets. The card never wears the accent focus ring: rings answer
+// "which pane owns the caret", and the sidebar is chrome, not a pane.
+//
+// The Files tab is the FileBrowserView, whole;
 // Search is the SearchView (project-wide find and replace), which used to be an
 // overlay over that tree and is now its own tab directly below it. Source
 // Control is the GitView (changes, staging, commit, sync, branches). Sessions
@@ -18,15 +32,16 @@ final class SidebarView: NSView {
     static let minWidth: CGFloat = 180
     static let maxWidth: CGFloat = 420
 
-    // A hairline of margin above the tab content. The inset was 16pt back when a
-    // tab opened straight onto its first row — Files' folder name, a search
-    // field — and needed something between that and the window's top edge. Every
-    // tab now opens with a SidebarTitle band (28pt of mostly-empty chrome by
-    // design), which is that separation, so the inset went to zero; flush to the
-    // edge read as *too* tight against the window's top. 5pt is the smallest
-    // value that lifts it off without bringing the old stacked-gap problem back.
-    // ActivityBarView reads the same value for its own first icon, so the strip
-    // and the panel beside it still start on one line.
+    // A hairline of margin above the tab content, now measured from the card's
+    // top edge rather than the window's. The inset was 16pt back when a tab
+    // opened straight onto its first row — Files' folder name, a search field —
+    // and needed something between that and the window's top edge. Every tab
+    // now opens with a SidebarTitle band (28pt of mostly-empty chrome by
+    // design), which is that separation, so the inset went to zero; flush to
+    // the edge read as *too* tight. 5pt is the smallest value that lifts it off
+    // without bringing the old stacked-gap problem back. ActivityBarView adds
+    // the same value on top of the card's wellInset margin for its own first
+    // icon, so the strip and the tab content beside it still start on one line.
     static let topInset: CGFloat = 5
 
     enum Tab: Int, CaseIterable {
@@ -116,14 +131,30 @@ final class SidebarView: NSView {
     let recentFolders = RecentFoldersView(frame: .zero)
     let usageFooter = ClaudeUsageFooterView(frame: .zero)
     private let backdrop = ChromeBackdropView(frame: .zero)
+    // The rounded container everything sits in — the panel's whole identity as
+    // a floating card. Clips with a continuous curve at the panes' radius so a
+    // scrolled file tree or the usage footer can't square the corners out, and
+    // wears the permanent 1pt hairline ring of an unfocused pane card.
+    private let card = NSView(frame: .zero)
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
+        card.wantsLayer = true
+        card.layer?.cornerRadius = Theme.Metrics.paneCornerRadius
+        card.layer?.cornerCurve = .continuous
+        card.layer?.masksToBounds = true
+        card.layer?.borderWidth = 1
+        card.layer?.borderColor = Theme.hairline.cgColor
+        addSubview(card)
+
         // The frosted sidebar ground (materials redesign): behind-window blur
-        // washed with the palette's chrome hue, shared with the activity bar
-        // beside it. First subview, so every tab composites over it.
-        addSubview(backdrop)
+        // washed with the palette's chrome hue, the same material as the
+        // activity bar beside it. First subview of the card, so every tab
+        // composites over it; rounded to the card's own radius because the
+        // blur region is shaped by the window server, not by our clip.
+        backdrop.cornerRadius = Theme.Metrics.paneCornerRadius
+        card.addSubview(backdrop)
 
         // A stale persisted value (e.g. from a build with more tabs, or the
         // icon-less Git tab) falls back to Files rather than landing on a
@@ -137,20 +168,20 @@ final class SidebarView: NSView {
         // other), and Escape on an empty search field walks back to the tree.
         fileBrowser.onSearch = { [weak self] in self?.showSearch() }
         searchView.onDismiss = { [weak self] in self?.select(tab: .files) }
-        addSubview(fileBrowser)
-        addSubview(searchView)
-        addSubview(notesView)
-        addSubview(gitView)
-        addSubview(sshHostsView)
-        addSubview(bookmarksView)
-        addSubview(sessionsView)
-        addSubview(opsLogView)
+        card.addSubview(fileBrowser)
+        card.addSubview(searchView)
+        card.addSubview(notesView)
+        card.addSubview(gitView)
+        card.addSubview(sshHostsView)
+        card.addSubview(bookmarksView)
+        card.addSubview(sessionsView)
+        card.addSubview(opsLogView)
 
         // The project switcher sits below the tab content, on every tab, and
         // the Claude Code usage footer sits at the very bottom below it.
-        addSubview(recentFolders)
+        card.addSubview(recentFolders)
         recentFolders.onHeightChange = { [weak self] in self?.layoutContents() }
-        addSubview(usageFooter)
+        card.addSubview(usageFooter)
         usageFooter.onHeightChange = { [weak self] in self?.layoutContents() }
 
         updateTabContent()
@@ -170,12 +201,14 @@ final class SidebarView: NSView {
         onTabChange?(tab)
     }
 
-    // Live theme switch: re-set the frosted ground baked in at init; the rest
-    // of the sidebar's draw-based chrome is repainted by the controller's
-    // recursive needsDisplay sweep. The activity bar re-tints its own icons —
-    // applyTheme() calls it alongside this. The Search tab's controls carry
-    // tints set at init for the same reason, so they are re-read here too.
+    // Live theme switch: re-set the frosted ground and the card's hairline
+    // ring baked in at init; the rest of the sidebar's draw-based chrome is
+    // repainted by the controller's recursive needsDisplay sweep. The activity
+    // bar re-tints its own icons — applyTheme() calls it alongside this. The
+    // Search tab's controls carry tints set at init for the same reason, so
+    // they are re-read here too.
     func reapplyTheme() {
+        card.layer?.borderColor = Theme.hairline.cgColor
         backdrop.reapplyTheme()
         searchView.reapplyTheme()
         // Same reason: the Source Control tab's header tints and the commit
@@ -199,19 +232,29 @@ final class SidebarView: NSView {
     // Manual layout, consistent with the pane tree around it (Auto Layout and
     // NSSplitView's frame management don't mix well — see SettingsWindowController).
     private func layoutContents() {
-        backdrop.frame = bounds
+        // The card floats: well margins on the three edges where the window
+        // ground shows (the split divider + the pane tree's own inset make the
+        // right-hand gutter — see the header comment), everything else inside.
+        card.frame = NSRect(
+            x: Theme.Metrics.wellInset,
+            y: Theme.Metrics.wellInset,
+            width: max(0, bounds.width - Theme.Metrics.wellInset),
+            height: max(0, bounds.height - Theme.Metrics.wellInset * 2)
+        )
+        let inner = card.bounds
+        backdrop.frame = inner
         let usageHeight = usageFooter.desiredHeight
-        usageFooter.frame = NSRect(x: 0, y: 0, width: bounds.width, height: usageHeight)
+        usageFooter.frame = NSRect(x: 0, y: 0, width: inner.width, height: usageHeight)
         let foldersHeight = recentFolders.isHidden ? 0 : recentFolders.desiredHeight
-        recentFolders.frame = NSRect(x: 0, y: usageHeight, width: bounds.width, height: foldersHeight)
+        recentFolders.frame = NSRect(x: 0, y: usageHeight, width: inner.width, height: foldersHeight)
         let footerHeight = usageHeight + foldersHeight
-        // Flush to the top edge: the tab's own title band is the margin now
-        // (see topInset).
+        // Flush to the card's top edge: the tab's own title band is the margin
+        // now (see topInset).
         let contentFrame = NSRect(
             x: 0,
             y: footerHeight,
-            width: bounds.width,
-            height: max(0, bounds.height - footerHeight - Self.topInset)
+            width: inner.width,
+            height: max(0, inner.height - footerHeight - Self.topInset)
         )
         fileBrowser.frame = contentFrame
         searchView.frame = contentFrame
