@@ -115,14 +115,15 @@ final class SidebarView: NSView {
     let opsLogView = OpsLogView(frame: .zero)
     let recentFolders = RecentFoldersView(frame: .zero)
     let usageFooter = ClaudeUsageFooterView(frame: .zero)
+    private let backdrop = ChromeBackdropView(frame: .zero)
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
-        // Flat bar chrome, replacing the .sidebar vibrancy — the
-        // left rail is part of the same dark world as the strip and headers.
-        wantsLayer = true
-        layer?.backgroundColor = Theme.barChrome.cgColor
+        // The frosted sidebar ground (materials redesign): behind-window blur
+        // washed with the palette's chrome hue, shared with the activity bar
+        // beside it. First subview, so every tab composites over it.
+        addSubview(backdrop)
 
         // A stale persisted value (e.g. from a build with more tabs, or the
         // icon-less Git tab) falls back to Files rather than landing on a
@@ -169,13 +170,13 @@ final class SidebarView: NSView {
         onTabChange?(tab)
     }
 
-    // Live theme switch: re-set the flat ground baked in at init; the rest of
-    // the sidebar's draw-based chrome is repainted by the controller's
+    // Live theme switch: re-set the frosted ground baked in at init; the rest
+    // of the sidebar's draw-based chrome is repainted by the controller's
     // recursive needsDisplay sweep. The activity bar re-tints its own icons —
     // applyTheme() calls it alongside this. The Search tab's controls carry
     // tints set at init for the same reason, so they are re-read here too.
     func reapplyTheme() {
-        layer?.backgroundColor = Theme.barChrome.cgColor
+        backdrop.reapplyTheme()
         searchView.reapplyTheme()
         // Same reason: the Source Control tab's header tints and the commit
         // box's layer ground are baked in at init.
@@ -198,6 +199,7 @@ final class SidebarView: NSView {
     // Manual layout, consistent with the pane tree around it (Auto Layout and
     // NSSplitView's frame management don't mix well — see SettingsWindowController).
     private func layoutContents() {
+        backdrop.frame = bounds
         let usageHeight = usageFooter.desiredHeight
         usageFooter.frame = NSRect(x: 0, y: 0, width: bounds.width, height: usageHeight)
         let foldersHeight = recentFolders.isHidden ? 0 : recentFolders.desiredHeight

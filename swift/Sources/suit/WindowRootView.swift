@@ -16,6 +16,16 @@ final class WindowRootView: NSView {
     weak var activityBar: NSView?
     weak var body: NSView?
 
+    // The well — the ground the pane cards float on — is painted here, not
+    // left to window.backgroundColor: offscreen renders capture the content
+    // view alone, and an unpainted region composites to black there (invisible
+    // on the dark themes, a black moat on the light ones). draw() re-reads the
+    // token live, so the theme sweep repaints it for free.
+    override func draw(_ dirtyRect: NSRect) {
+        Theme.well.setFill()
+        dirtyRect.fill()
+    }
+
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
         layoutParts()

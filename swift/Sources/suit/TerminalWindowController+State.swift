@@ -133,6 +133,7 @@ extension TerminalWindowController {
             let split = SuitSplitView(frame: .zero)
             split.isVertical = vertical
             split.dividerStyle = .thin
+            split.isPaneGutter = true
             split.delegate = self
             split.addArrangedSubview(a)
             split.addArrangedSubview(b)

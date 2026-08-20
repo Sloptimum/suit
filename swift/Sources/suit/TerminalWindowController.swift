@@ -128,6 +128,9 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         rootContainer = WindowRootView(frame: frame)
 
         paneTreeHost = RootContainerView(frame: frame)
+        // The well margin: cards float on the darker window ground rather
+        // than tiling it edge to edge (see RootContainerView.contentInset).
+        paneTreeHost.contentInset = 6
 
         // A saved layout replays here; a tab whose content can't come back
         // (file gone, transcript session dead) is dropped, its pane collapses,
@@ -369,7 +372,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         layoutSidebarSplit()
 
         window.contentView = rootContainer
-        window.backgroundColor = Theme.bg
+        window.backgroundColor = Theme.well
 
         if let fallbackPane {
             window.title = fallbackPane.displayTitle

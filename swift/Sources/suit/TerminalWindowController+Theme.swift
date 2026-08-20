@@ -29,7 +29,7 @@ extension TerminalWindowController {
     // panes need it to tell a theme-derived terminal ground, which should follow
     // the switch, from a color the user picked, which shouldn't.
     func applyTheme(previous: Theme.Palette? = nil) {
-        window.backgroundColor = Theme.bg
+        window.backgroundColor = Theme.well
 
         for pane in panes {
             pane.reapplyTheme(previous: previous)
@@ -57,6 +57,14 @@ extension TerminalWindowController {
     // ruler on the scroll view rather than a plain subview.
     private func refreshThemeRecursively(_ view: NSView) {
         view.needsDisplay = true
+        // needsDisplay alone doesn't reach a split view's divider chrome —
+        // AppKit repaints it on layout, not display. Invisible when every
+        // theme's hairline was a near-identical grey; the pane gutters are
+        // wide and well-colored now, so a switch would leave them wearing the
+        // old palette until the next drag or resize.
+        if let split = view as? NSSplitView {
+            split.needsLayout = true
+        }
         if let scroll = view as? NSScrollView,
            let ruler = scroll.verticalRulerView as? LineNumberRulerView {
             ruler.reapplyTheme()

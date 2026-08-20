@@ -11,5 +11,15 @@ import Cocoa
 // computed override follows a live theme switch for free, with nothing cached
 // and nothing to reapply.
 final class SuitSplitView: NSSplitView {
-    override var dividerColor: NSColor { Theme.hairline }
+    // Pane-tree splits set this (the three creation sites in +Splitting,
+    // +Panes and +State): their divider widens into a gutter painted the same
+    // well color as the margin around the tree, so two cards read as floating
+    // side by side rather than sharing an edge. The sidebar split leaves it
+    // false — the frost wants a crisp 1px hairline against the pane world,
+    // not a moat.
+    var isPaneGutter = false
+
+    override var dividerColor: NSColor { isPaneGutter ? Theme.well : Theme.hairline }
+
+    override var dividerThickness: CGFloat { isPaneGutter ? 6 : super.dividerThickness }
 }

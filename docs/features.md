@@ -662,6 +662,16 @@ app does.
 
 ## Appearance & settings
 
+- **The materials look** — the window is layered like a first-party Mac app. The left world
+  (activity bar + sidebar) sits on a frosted behind-window material: the desktop blurs through,
+  washed with the active theme's `barChrome` hue so every palette keeps its identity over the
+  glass (offscreen renders show the material's flat fallback instead — no desktop to sample).
+  The panes are **cards**: continuous-corner rounded surfaces (10pt) floating on a *well* — the
+  window ground taken one step darker than the theme's `bg` — with a 6pt margin around the tree
+  and 6pt gutters between splits. The focused card wears a 2pt accent ring; every other card a
+  1pt hairline (with a single pane, no ring at all). Both the well and the frost wash are derived
+  from existing tokens, so all fourteen built-in themes and any imported `.suittheme` get the
+  look without a new field.
 - **Hack ships with the app** — [Hack](https://sourcefoundry.org/hack) v3.003 (Regular, Bold,
   Italic, Bold Italic) is bundled in `Suit.app/Contents/Resources/fonts` and registered into the
   process at launch, so it's the default for terminals, file viewers, diffs, and transcripts on a
@@ -693,21 +703,22 @@ app does.
   colors and speed. Terminals ground a step darker than the chrome: "Midnight" (#0A0C15 in Suit
   Dark — a blue-violet black that follows the active theme) is the default terminal background,
   giving shell output its own deeper layer, while "Slate" keeps the one-surface chrome ground
-  (#17191D) available per pane. Past those two the presets are hued rather than grey, so splits
+  (#16171C) available per pane. Past those two the presets are hued rather than grey, so splits
   are tellable apart at a glance: "Graphite" (#15171B) is the one neutral, then "Ink" (#0E1130),
   "Abyss" (#03202C), "Evergreen" (#08201A), "Deep Plum" (#1C0F2E), "Oxblood" (#230D14) and
   "Ember" (#21100A), with Dracula, Nord and Solarized Dark at their published values. All stay
   dark enough that dim ANSI text keeps its contrast. The same list backs the screensaver's
   background menu.
-- **Section boundaries** — the chrome surfaces (activity bar, sidebar, pane headers, in-pane tab
-  bars) deliberately share one ground, so every boundary between them is drawn as a hairline in
-  the active theme's `hairline` token rather than left to a change of color: a full-height rule
-  down the activity bar's right edge (its icons carry no rules between them — the hover square is
-  already the cell boundary), themed split dividers between the sidebar and the pane tree and between every pair of panes (AppKit's system
-  divider is derived from the appearance, not the palette, and vanishes on the darker themes), a
-  rule under each pane header, and a rule between adjacent tabs in a pane's tab bar — skipped
-  beside the active tab, whose own border already marks that edge. Everything follows a theme
-  switch live.
+- **Section boundaries** — the frosted surfaces (activity bar, sidebar) share one ground, so the
+  boundaries inside that world are drawn as hairlines in the active theme's `hairline` token
+  rather than left to a change of color: a full-height rule down the activity bar's right edge
+  (its icons carry no rules between them — the hover square is already the cell boundary) and a
+  themed divider between the sidebar and the pane world (AppKit's system divider is derived from
+  the appearance, not the palette, and vanishes on the darker themes). Between panes the boundary
+  is the well itself — the darker gutter each card floats in — while inside a card a rule under
+  the pane header and a rule between adjacent tabs in its tab bar (skipped beside the active tab,
+  whose own border already marks that edge) keep the internal structure. Everything follows a
+  theme switch live, gutters included.
 
 ## Themes
 
@@ -724,7 +735,8 @@ app does.
   instantly, no relaunch. For quick cycling without opening Settings, run **Switch Theme…** from the
   command palette (⌘K), which labels each entry `built-in dark` / `custom light`. The selection
   persists across launches, so the app opens already themed. Fourteen themes ship built in:
-  - **Suit originals** — **Suit Dark** (the default — the exact look you've always had),
+  - **Suit originals** — **Suit Dark** (the default — refreshed in the materials redesign: cooler,
+    slightly deeper grounds, a brighter text ramp, and the amber accent cleaned up toward gold),
     **Midnight** (navy over near-black, periwinkle accent), **Ember** (warm espresso, ember-orange
     accent), **Verdigris** (graphite with a verdigris accent — the quietest of the set),
     **Amethyst** (deep plum, violet accent), and **Obsidian** (true black for OLED, highest

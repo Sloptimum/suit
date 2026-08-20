@@ -77,11 +77,18 @@ protocol PaneHost: AnyObject {
 // content-agnostic chrome — focus border, header, drag & drop, background
 // color, screensaver.
 final class Pane: NSObject {
-    // 1pt amber at 70% when focused, hairline otherwise. Computed (not cached)
+    // 2pt amber when focused, a 1pt hairline otherwise. Computed (not cached)
     // so a live theme switch is seen the next time setFocused repaints — a
     // `static let` would freeze the old palette's colors for the app's life.
     private static var focusedBorder: CGColor { Theme.focusBorder.cgColor }
     private static var unfocusedBorder: CGColor { Theme.hairline.cgColor }
+
+    // The ring's two inputs, kept so either setter can recompute the whole
+    // state: width follows focus (the focused card carries the wide ring, the
+    // rest a hairline), and visibility follows the pane count — see
+    // refreshBorder().
+    private var showsBorder = false
+    private var isFocused = false
 
     // Shared with Pane+BackgroundColor and Pane+Screensaver.
     //
@@ -195,6 +202,11 @@ final class Pane: NSObject {
         container.wantsLayer = true
         container.layer?.borderWidth = 0
         container.layer?.cornerRadius = Theme.Metrics.paneCornerRadius
+        // Continuous-curve corners, clipped: at 10pt a square content corner
+        // visibly pokes past the rounded border (the 4pt radius used to hide
+        // inside the 3pt inset), so the card clips everything to its own shape.
+        container.layer?.cornerCurve = .continuous
+        container.layer?.masksToBounds = true
         container.layer?.borderColor = Pane.unfocusedBorder
         // The 3pt content inset shows the container itself; ground it in the
         // chrome color so the outline reads as one hairline —
@@ -345,12 +357,27 @@ final class Pane: NSObject {
     // Purely visual; the window controller derives who's focused from
     // window.firstResponder and repaints every pane (firstResponderDidChange).
     func setFocused(_ focused: Bool) {
-        container.layer?.borderColor = focused ? Pane.focusedBorder : Pane.unfocusedBorder
+        isFocused = focused
+        refreshBorder()
     }
 
     // The border is only meaningful once there's more than one pane to distinguish.
     func setBorderVisible(_ visible: Bool) {
-        container.layer?.borderWidth = visible ? Theme.Metrics.focusBorderWidth : 0
+        showsBorder = visible
+        refreshBorder()
+    }
+
+    // One writer for the ring, since its width and color both depend on both
+    // inputs: the focused card wears the accent at focusBorderWidth, every
+    // other card a 1pt hairline — a uniform 2pt hairline on unfocused panes
+    // read as five rings shouting at once.
+    private func refreshBorder() {
+        guard showsBorder else {
+            container.layer?.borderWidth = 0
+            return
+        }
+        container.layer?.borderWidth = isFocused ? Theme.Metrics.focusBorderWidth : 1
+        container.layer?.borderColor = isFocused ? Pane.focusedBorder : Pane.unfocusedBorder
     }
 
     func flashForBell() {

@@ -15,10 +15,13 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        // Flat bar chrome, replacing the .titlebar vibrancy.
+        // Flat bar chrome, replacing the .titlebar vibrancy. The top corners
+        // match the card's continuous curve so the band and the container clip
+        // to one shape.
         wantsLayer = true
         layer?.backgroundColor = Theme.barChrome.cgColor
         layer?.cornerRadius = Theme.Metrics.paneCornerRadius
+        layer?.cornerCurve = .continuous
         layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
 
         iconView.imageScaling = .scaleProportionallyDown
@@ -177,8 +180,8 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
     }
 
     private func layoutBar() {
-        let iconSize: CGFloat = 12
-        iconView.frame = NSRect(x: 8, y: (bounds.height - iconSize) / 2, width: iconSize, height: iconSize)
+        let iconSize = Theme.Metrics.paneHeaderIconSize
+        iconView.frame = NSRect(x: 9, y: (bounds.height - iconSize) / 2, width: iconSize, height: iconSize)
 
         var right = bounds.width - 8
         if !contextLabel.isHidden {
