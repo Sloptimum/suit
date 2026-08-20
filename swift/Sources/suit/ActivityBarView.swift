@@ -25,6 +25,7 @@ final class ActivityBarView: NSView {
     }
 
     private var icons: [RailIconView] = []
+    private let backdrop = ChromeBackdropView(frame: .zero)
 
     // A count in the corner of one tab's icon — the Source Control tab's
     // changed-file count, so a dirty tree is visible with the sidebar
@@ -36,10 +37,10 @@ final class ActivityBarView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
-        // The same flat bar ground as the sidebar beside it — the bar, the
-        // sidebar and the headers are one dark world, not chrome on chrome.
-        wantsLayer = true
-        layer?.backgroundColor = Theme.barChrome.cgColor
+        // The same frosted ground as the sidebar beside it — the two backdrops
+        // are contiguous behind-window material, so bar and panel read as one
+        // translucent left world with no seam.
+        addSubview(backdrop)
 
         for tab in SidebarView.Tab.railOrder {
             let icon = RailIconView(tab: tab)
@@ -54,12 +55,12 @@ final class ActivityBarView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    // Live theme switch: the layer ground and each icon's tint are baked in at
-    // init, so neither is reached by the controller's recursive needsDisplay
+    // Live theme switch: the backdrop's wash and each icon's tint are baked in
+    // at init, so neither is reached by the controller's recursive needsDisplay
     // sweep — that only repaints draw()-based chrome. Called explicitly from
     // applyTheme(), exactly like SidebarView.reapplyTheme().
     func reapplyTheme() {
-        layer?.backgroundColor = Theme.barChrome.cgColor
+        backdrop.reapplyTheme()
         for icon in icons { icon.reapplyTheme() }
     }
 
@@ -69,8 +70,8 @@ final class ActivityBarView: NSView {
         needsDisplay = true
     }
 
-    // The bar and the sidebar beside it share one ground (`barChrome`), which
-    // is the look — but it also means the strip has no edge and runs into the
+    // The bar and the sidebar beside it share one frosted ground, which is the
+    // look — but it also means the strip has no edge and runs into the
     // panel. One full-height hairline down the right edge gives it back, so the
     // icons read as a column of their own. Deliberately the *only* rule here:
     // per-icon separators were tried and read as a list of rows, which fought
@@ -83,6 +84,7 @@ final class ActivityBarView: NSView {
     // Manual layout, consistent with the rest of the window's chrome (Auto
     // Layout and NSSplitView's frame management don't mix here).
     private func layoutContents() {
+        backdrop.frame = bounds
         let size = RailIconView.size
         // Shared with the sidebar's own top inset so the first icon and the tab
         // content beside it start on one line — both clear the top edge by the

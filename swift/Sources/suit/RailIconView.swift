@@ -61,7 +61,7 @@ final class RailIconView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         if isSelected || isHovered {
-            let path = NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8)
+            let path = NSBezierPath(roundedRect: bounds, xRadius: 10, yRadius: 10)
             (isSelected ? Theme.selection : Theme.hover).setFill()
             path.fill()
         }

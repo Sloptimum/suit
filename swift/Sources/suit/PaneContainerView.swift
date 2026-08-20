@@ -39,6 +39,7 @@ final class PaneContainerView: NSView {
         dropIndicator.layer?.borderColor = Theme.accent.cgColor
         dropIndicator.layer?.borderWidth = 2
         dropIndicator.layer?.cornerRadius = Theme.Metrics.paneCornerRadius
+        dropIndicator.layer?.cornerCurve = .continuous
         dropIndicator.isHidden = true
         addSubview(dropIndicator)
 

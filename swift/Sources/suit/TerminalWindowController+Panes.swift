@@ -206,6 +206,7 @@ extension TerminalWindowController {
         let splitView = SuitSplitView(frame: paneTreeHost.bounds)
         splitView.isVertical = false
         splitView.dividerStyle = .thin
+        splitView.isPaneGutter = true
         splitView.delegate = self
 
         let upperTree = paneTreeRoot!
