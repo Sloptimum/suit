@@ -38,7 +38,20 @@ enum Theme {
     /// down, showing in the margin around the pane tree and in the gutters
     /// between cards. Derived, not a token — it must track `bg` exactly or
     /// the well and the cards drift apart on custom themes.
-    static var well: NSColor { deepened(current.bg) }
+    ///
+    /// A ground with no room left below it (Obsidian's #000000, and any custom
+    /// theme that goes to black) would take that step and land on itself,
+    /// which erases the whole floating-card language: margin, gutters and
+    /// cards would all be the same black. Those themes go *up* toward their own
+    /// hairline instead — the direction is what has to flex, not the idea. Half
+    /// the distance, so the gutter still reads as a recess rather than as a
+    /// second border beside each card's own.
+    static var well: NSColor {
+        let ground = current.bg
+        let deeper = deepened(ground)
+        guard Palette.hex(deeper) == Palette.hex(ground) else { return deeper }
+        return blend(ground, toward: current.hairline, fraction: 0.5)
+    }
     /// Terminal ground: a step darker than the chrome, so shell output sits
     /// in its own deeper layer.
     static var terminalBg: NSColor { current.terminalBg }
