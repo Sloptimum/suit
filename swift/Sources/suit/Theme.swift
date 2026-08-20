@@ -34,6 +34,24 @@ enum Theme {
 
     /// Window/content ground — also the default viewer/diff background.
     static var bg: NSColor { current.bg }
+    /// The ground the pane cards float on: `bg` taken one deepened() step
+    /// down, showing in the margin around the pane tree and in the gutters
+    /// between cards. Derived, not a token — it must track `bg` exactly or
+    /// the well and the cards drift apart on custom themes.
+    ///
+    /// A ground with no room left below it (Obsidian's #000000, and any custom
+    /// theme that goes to black) would take that step and land on itself,
+    /// which erases the whole floating-card language: margin, gutters and
+    /// cards would all be the same black. Those themes go *up* toward their own
+    /// hairline instead — the direction is what has to flex, not the idea. Half
+    /// the distance, so the gutter still reads as a recess rather than as a
+    /// second border beside each card's own.
+    static var well: NSColor {
+        let ground = current.bg
+        let deeper = deepened(ground)
+        guard Palette.hex(deeper) == Palette.hex(ground) else { return deeper }
+        return blend(ground, toward: current.hairline, fraction: 0.5)
+    }
     /// Terminal ground: a step darker than the chrome, so shell output sits
     /// in its own deeper layer.
     static var terminalBg: NSColor { current.terminalBg }
@@ -60,10 +78,20 @@ enum Theme {
     /// Amber — focus borders, visible-tab ticks, switcher selection, drop
     /// indicators. Replaces controlAccentColor everywhere in the chrome.
     static var accent: NSColor { current.accent }
-    /// The pane focus border: 1pt accent at 70%.
-    static var focusBorder: NSColor { accent.withAlphaComponent(0.7) }
+    /// The pane focus ring: accent at 85%, drawn at focusBorderWidth. The ring
+    /// is the one place the chrome spends real accent weight, so it carries
+    /// nearly full strength — at the old 70% it read as a stain on the card
+    /// edge rather than a state.
+    static var focusBorder: NSColor { accent.withAlphaComponent(0.85) }
     /// Amber-tinted row selection (sidebar lists, search results).
     static var selection: NSColor { accent.withAlphaComponent(0.22) }
+    /// The wash ChromeBackdropView paints over its blur material: the palette's
+    /// bar chrome carried at partial alpha, so the frosted sidebar world keeps
+    /// the theme's hue while the desktop leaks through underneath. Derived
+    /// rather than a 27th token: a theme that stated it opaque would just be
+    /// turning the material off, and every existing theme gets the frost from
+    /// the barChrome it already declares.
+    static var chromeTint: NSColor { barChrome.withAlphaComponent(0.72) }
 
     /// Project-search hits in an open file: the wash behind every occurrence of
     /// the Search tab's pattern, and the minimap tick that answers "where else
@@ -186,30 +214,34 @@ enum Theme {
     // MARK: - Metrics
 
     enum Metrics {
-        static let stripHeight: CGFloat = 40
-        /// Tabs are 34pt, bottom-aligned in the strip (they connect to the content edge).
-        static let tabHeight: CGFloat = 34
-        /// Top corners only — the tab merges into the content below.
-        static let tabRadius: CGFloat = 8
-        static let tabGap: CGFloat = 2
-        static let tabMaxWidth: CGFloat = 190
-        static let tabPinnedWidth: CGFloat = 34
+        // The window-level strip's metrics (stripHeight, tabHeight, …) left
+        // with the strip itself; these two survived it because the in-pane tab
+        // chips, the Sessions list and the fleet dashboard share them.
         static let tabIconSize: CGFloat = 14
         static let dotSize: CGFloat = 7
-        /// The 2pt amber bar marking a tab visible in a non-focused pane.
-        static let visibleTickHeight: CGFloat = 2
-        static let visibleTickInset: CGFloat = 10
-        /// "+" and ⌄ hover squares.
-        static let stripButtonSize: CGFloat = 24
 
-        static let paneHeaderHeight: CGFloat = 26
+        static let paneHeaderHeight: CGFloat = 29
         static let paneHeaderIconSize: CGFloat = 12
-        static let paneCornerRadius: CGFloat = 4
-        static let focusBorderWidth: CGFloat = 1
+        /// The pane card: a continuous-curve corner big enough that a pane
+        /// reads as a surface floating on the window ground, not a rectangle
+        /// with the corners filed off. Everything that mirrors a pane's shape
+        /// (the drop preview, the header's top corners) takes the same value,
+        /// and PaneContainerView clips to it so content can't square them out.
+        static let paneCornerRadius: CGFloat = 10
+        /// The focused card's ring; unfocused cards fall back to a 1pt
+        /// hairline (see Pane.refreshBorder — the two widths are a state, not
+        /// a constant).
+        static let focusBorderWidth: CGFloat = 2
+        /// The well margin: how far every floating card stands off the window
+        /// edges and off its neighbors — the pane tree's contentInset, the
+        /// sidebar card's margins, and the activity bar's first-icon offset all
+        /// read this one value so the grounds line up. Matches the pane splits'
+        /// gutter (SuitSplitView.gutterThickness) on purpose: one rhythm for
+        /// every gap the well shows through.
+        static let wellInset: CGFloat = 6
 
-        static let overlayRadius: CGFloat = 10
-        static let menuRadius: CGFloat = 8
-        static let switcherRowHeight: CGFloat = 30
+        static let overlayRadius: CGFloat = 14
+        static let switcherRowHeight: CGFloat = 32
 
         /// The one motion value: tab reorder, hover fades. Gate any animation
         /// using it behind accessibilityDisplayShouldReduceMotion.
@@ -220,7 +252,9 @@ enum Theme {
 
     /// Tab titles (italic variant = preview tab).
     static let tabTitleFont = NSFont.systemFont(ofSize: 12, weight: .medium)
-    static let paneHeaderFont = NSFont.systemFont(ofSize: 11.5, weight: .medium)
+    /// A full 12pt now that the header band is 29pt: at 11.5 the title floated
+    /// in the taller band and the header read as under-filled.
+    static let paneHeaderFont = NSFont.systemFont(ofSize: 12, weight: .medium)
     /// ctx% in pane headers.
     static let contextFont = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
     /// The strip's usage readout.

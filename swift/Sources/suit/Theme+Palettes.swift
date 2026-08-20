@@ -26,28 +26,39 @@ extension Theme.Palette {
 
     // MARK: - Suit originals
 
-    /// The default. Near-neutral graphite chrome, blue-violet terminal ground,
-    /// amber accent — the values the app shipped with, so nothing changes out of
-    /// the box. Its syntax and diff tokens are exactly the constants that used to
-    /// be hardcoded in SyntaxHighlighter / DiffPane, so the viewer is unchanged
-    /// too; the tokens only make them themeable.
+    /// The default. Refreshed in the materials redesign: the grounds stepped
+    /// cooler and a touch deeper (barChrome doubles as the frost wash over the
+    /// sidebar's blur material now — see Theme.chromeTint — so it wants a hue,
+    /// not a grey), the text ramp came up a step for contrast against the
+    /// translucent chrome, and the amber accent cleaned up toward gold. The
+    /// syntax and diff tokens are untouched — the viewer's color language
+    /// predates the redesign and survived it.
     static let suitDark = Theme.Palette(
         name: "Suit Dark",
+        // Deliberately NOT restyled with the rest of the refresh. `bg` is the
+        // "Slate" preset in Pane.presetColors, and Pane.reapplyTheme decides
+        // whether a terminal follows a theme switch by comparing its stored
+        // ground against the *outgoing* palette's bg. Moving this value by even
+        // one level would orphan every terminal already sitting on Slate: the
+        // comparison would never match again, and those panes would be read as
+        // "the user picked this colour" and stay dark forever under a light
+        // theme. The refresh lives in the tokens above and below it instead,
+        // where nothing persisted points at the old value.
         bg: Theme.rgb(0x17191D),
         // The terminal ground carries a blue-violet undertone the near-neutral
         // chrome doesn't: it reads as a deeper layer rather than one more grey,
         // and the cool cast is what makes the amber accent (and warm ANSI
         // yellows/reds) sit forward instead of sinking into the background.
         terminalBg: Theme.rgb(0x0A0C15),
-        barChrome: Theme.rgb(0x1F2228),
-        raised: Theme.rgb(0x2A2E36),
-        hover: Theme.rgb(0x262A31),
-        hairline: Theme.rgb(0x34383F),
-        overlay: Theme.rgb(0x23262C),
-        textPrimary: Theme.rgb(0xD7DAE0),
-        textDim: Theme.rgb(0x8B909C),
-        textFaint: Theme.rgb(0x4C515B),
-        accent: Theme.rgb(0xD99A3D),
+        barChrome: Theme.rgb(0x1D2027),
+        raised: Theme.rgb(0x2B3038),
+        hover: Theme.rgb(0x272B33),
+        hairline: Theme.rgb(0x363B44),
+        overlay: Theme.rgb(0x222630),
+        textPrimary: Theme.rgb(0xDCDFE6),
+        textDim: Theme.rgb(0x939AA8),
+        textFaint: Theme.rgb(0x555B68),
+        accent: Theme.rgb(0xE0A04A),
         sessionBusy: Theme.rgb(0xE08A3C),
         sessionNeedsInput: Theme.rgb(0xE5C453),
         sessionDone: Theme.rgb(0x57B36B),

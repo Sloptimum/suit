@@ -11,5 +11,29 @@ import Cocoa
 // computed override follows a live theme switch for free, with nothing cached
 // and nothing to reapply.
 final class SuitSplitView: NSSplitView {
-    override var dividerColor: NSColor { Theme.hairline }
+    // Pane-tree splits set this (the three creation sites in +Splitting,
+    // +Panes and +State): their divider widens into a gutter painted the same
+    // well color as the margin around the tree, so two cards read as floating
+    // side by side rather than sharing an edge.
+    var isPaneGutter = false
+
+    // The sidebar split sets this instead: its divider stays thin (the drag
+    // affordance between two independently-sized worlds) but paints the well,
+    // so the hairline melts into the gutter between the sidebar card and the
+    // pane cards instead of drawing a line across it. Splits *inside* a pane
+    // (BackgroundTaskPane) set neither flag and keep the crisp hairline.
+    var isWellSeam = false
+
+    /// The gutter's width. Public because callers that ask "is there room to
+    /// split?" have to subtract it *before* the split exists — see
+    /// paneRequestedFooter.
+    static let gutterThickness: CGFloat = 6
+
+    override var dividerColor: NSColor {
+        isPaneGutter || isWellSeam ? Theme.well : Theme.hairline
+    }
+
+    override var dividerThickness: CGFloat {
+        isPaneGutter ? Self.gutterThickness : super.dividerThickness
+    }
 }

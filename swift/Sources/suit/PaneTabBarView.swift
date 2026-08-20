@@ -4,9 +4,12 @@ import Cocoa
 // failed dot, and a hover-revealed close box. Purely visual + local hit
 // resolution; the bar routes select/close/context back to the pane's host.
 final class PaneTabChipView: NSView, NSDraggingSource {
-    static let height: CGFloat = 24
+    static let height: CGFloat = 26
     static let minWidth: CGFloat = 70
     static let maxWidth: CGFloat = 180
+    // The chip's rounded rect — shared by the active fill and the hover fill
+    // so the two states are one shape.
+    static let radius: CGFloat = 7
 
     private(set) var tabId: String = ""
     var onSelect: ((String) -> Void)?
@@ -112,7 +115,7 @@ final class PaneTabChipView: NSView, NSDraggingSource {
     override func draw(_ dirtyRect: NSRect) {
         let body = bounds.insetBy(dx: 1, dy: 2)
         if isActive {
-            let path = NSBezierPath(roundedRect: body, xRadius: 5, yRadius: 5)
+            let path = NSBezierPath(roundedRect: body, xRadius: Self.radius, yRadius: Self.radius)
             Theme.raised.setFill()
             path.fill()
             Theme.hairline.setStroke()
@@ -120,9 +123,9 @@ final class PaneTabChipView: NSView, NSDraggingSource {
             path.stroke()
             // Accent underline anchors the active chip.
             Theme.accent.setFill()
-            NSBezierPath(roundedRect: NSRect(x: body.minX + 4, y: body.minY, width: body.width - 8, height: 2), xRadius: 1, yRadius: 1).fill()
+            NSBezierPath(roundedRect: NSRect(x: body.minX + 5, y: body.minY, width: body.width - 10, height: 2), xRadius: 1, yRadius: 1).fill()
         } else if isHovered {
-            let path = NSBezierPath(roundedRect: body, xRadius: 5, yRadius: 5)
+            let path = NSBezierPath(roundedRect: body, xRadius: Self.radius, yRadius: Self.radius)
             Theme.hover.setFill()
             path.fill()
         }
@@ -274,9 +277,9 @@ final class PaneTabChipView: NSView, NSDraggingSource {
 // single-tab pane looks exactly as before. There is no window-level strip;
 // this and the sidebar Sessions tab together replace it.
 final class PaneTabBarView: NSView {
-    static let height: CGFloat = 28
+    static let height: CGFloat = 31
     private static let gap: CGFloat = 3
-    private static let inset: CGFloat = 4
+    private static let inset: CGFloat = 5
 
     var onSelect: ((Tab) -> Void)?
     var onClose: ((Tab) -> Void)?

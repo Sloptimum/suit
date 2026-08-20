@@ -662,6 +662,19 @@ app does.
 
 ## Appearance & settings
 
+- **The materials look** — the window is layered like a first-party Mac app. The activity bar
+  sits on a frosted behind-window material, pinned flush to the window's left edge: the desktop
+  blurs through, washed with the active theme's `barChrome` hue so every palette keeps its
+  identity over the glass (offscreen renders show the material's flat fallback instead — no
+  desktop to sample). Everything else floats as **cards**: continuous-corner rounded surfaces
+  (10pt) on a *well* — the window ground taken one step darker than the theme's `bg` — with a
+  6pt margin against the window edges and 6pt gutters between splits. The sidebar is a card too,
+  carrying the same frosted material inside its rounded shape and a permanent 1pt hairline ring;
+  it never takes the accent ring, which answers "which pane owns the caret" and so belongs to
+  panes alone. The focused pane card wears that 2pt accent ring; every other pane card a 1pt
+  hairline (with a single pane, no ring at all). Both the well and the frost wash are derived
+  from existing tokens, so all fourteen built-in themes and any imported `.suittheme` get the
+  look without a new field.
 - **Hack ships with the app** — [Hack](https://sourcefoundry.org/hack) v3.003 (Regular, Bold,
   Italic, Bold Italic) is bundled in `Suit.app/Contents/Resources/fonts` and registered into the
   process at launch, so it's the default for terminals, file viewers, diffs, and transcripts on a
@@ -699,15 +712,16 @@ app does.
   "Ember" (#21100A), with Dracula, Nord and Solarized Dark at their published values. All stay
   dark enough that dim ANSI text keeps its contrast. The same list backs the screensaver's
   background menu.
-- **Section boundaries** — the chrome surfaces (activity bar, sidebar, pane headers, in-pane tab
-  bars) deliberately share one ground, so every boundary between them is drawn as a hairline in
-  the active theme's `hairline` token rather than left to a change of color: a full-height rule
-  down the activity bar's right edge (its icons carry no rules between them — the hover square is
-  already the cell boundary), themed split dividers between the sidebar and the pane tree and between every pair of panes (AppKit's system
-  divider is derived from the appearance, not the palette, and vanishes on the darker themes), a
-  rule under each pane header, and a rule between adjacent tabs in a pane's tab bar — skipped
-  beside the active tab, whose own border already marks that edge. Everything follows a theme
-  switch live.
+- **Section boundaries** — between surfaces the boundary is the well itself: the darker ground
+  shows in the gutter between the activity bar and the sidebar card, between the sidebar card and
+  the pane cards (where the split's thin divider paints the well too, so dragging to resize still
+  works but no line crosses the gutter), and between panes. The activity bar's icons carry no
+  rules between them — the hover square is already the cell boundary — and the bar itself needs
+  no edge rule since the well now separates it from everything to its right. Inside a card,
+  hairlines in the active theme's `hairline` token keep the internal structure: the sidebar
+  card's ring, a rule under the pane header, and a rule between adjacent tabs in its tab bar
+  (skipped beside the active tab, whose own border already marks that edge). Everything follows
+  a theme switch live, gutters included.
 
 ## Themes
 
@@ -724,7 +738,8 @@ app does.
   instantly, no relaunch. For quick cycling without opening Settings, run **Switch Theme…** from the
   command palette (⌘K), which labels each entry `built-in dark` / `custom light`. The selection
   persists across launches, so the app opens already themed. Fourteen themes ship built in:
-  - **Suit originals** — **Suit Dark** (the default — the exact look you've always had),
+  - **Suit originals** — **Suit Dark** (the default — refreshed in the materials redesign: cooler,
+    slightly deeper grounds, a brighter text ramp, and the amber accent cleaned up toward gold),
     **Midnight** (navy over near-black, periwinkle accent), **Ember** (warm espresso, ember-orange
     accent), **Verdigris** (graphite with a verdigris accent — the quietest of the set),
     **Amethyst** (deep plum, violet accent), and **Obsidian** (true black for OLED, highest

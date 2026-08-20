@@ -128,6 +128,9 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         rootContainer = WindowRootView(frame: frame)
 
         paneTreeHost = RootContainerView(frame: frame)
+        // The well margin: cards float on the darker window ground rather
+        // than tiling it edge to edge (see RootContainerView.contentInset).
+        paneTreeHost.contentInset = Theme.Metrics.wellInset
 
         // A saved layout replays here; a tab whose content can't come back
         // (file gone, transcript session dead) is dropped, its pane collapses,
@@ -343,10 +346,15 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
             }
         }
 
-        sidebarSplit = SuitSplitView(frame: frame)
-        sidebarSplit.isVertical = true
-        sidebarSplit.dividerStyle = .thin
-        sidebarSplit.delegate = self
+        let split = SuitSplitView(frame: frame)
+        split.isVertical = true
+        split.dividerStyle = .thin
+        // The sidebar is a floating card now, so the divider beside it paints
+        // the well and vanishes into the gutter (see SuitSplitView.isWellSeam);
+        // it still carries the resize drag.
+        split.isWellSeam = true
+        split.delegate = self
+        sidebarSplit = split
         sidebarSplit.addArrangedSubview(sidebar)
         sidebarSplit.addArrangedSubview(paneTreeHost)
 
@@ -369,7 +377,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         layoutSidebarSplit()
 
         window.contentView = rootContainer
-        window.backgroundColor = Theme.bg
+        window.backgroundColor = Theme.well
 
         if let fallbackPane {
             window.title = fallbackPane.displayTitle
