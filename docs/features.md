@@ -662,14 +662,17 @@ app does.
 
 ## Appearance & settings
 
-- **The materials look** — the window is layered like a first-party Mac app. The left world
-  (activity bar + sidebar) sits on a frosted behind-window material: the desktop blurs through,
-  washed with the active theme's `barChrome` hue so every palette keeps its identity over the
-  glass (offscreen renders show the material's flat fallback instead — no desktop to sample).
-  The panes are **cards**: continuous-corner rounded surfaces (10pt) floating on a *well* — the
-  window ground taken one step darker than the theme's `bg` — with a 6pt margin around the tree
-  and 6pt gutters between splits. The focused card wears a 2pt accent ring; every other card a
-  1pt hairline (with a single pane, no ring at all). Both the well and the frost wash are derived
+- **The materials look** — the window is layered like a first-party Mac app. The activity bar
+  sits on a frosted behind-window material, pinned flush to the window's left edge: the desktop
+  blurs through, washed with the active theme's `barChrome` hue so every palette keeps its
+  identity over the glass (offscreen renders show the material's flat fallback instead — no
+  desktop to sample). Everything else floats as **cards**: continuous-corner rounded surfaces
+  (10pt) on a *well* — the window ground taken one step darker than the theme's `bg` — with a
+  6pt margin against the window edges and 6pt gutters between splits. The sidebar is a card too,
+  carrying the same frosted material inside its rounded shape and a permanent 1pt hairline ring;
+  it never takes the accent ring, which answers "which pane owns the caret" and so belongs to
+  panes alone. The focused pane card wears that 2pt accent ring; every other pane card a 1pt
+  hairline (with a single pane, no ring at all). Both the well and the frost wash are derived
   from existing tokens, so all fourteen built-in themes and any imported `.suittheme` get the
   look without a new field.
 - **Hack ships with the app** — [Hack](https://sourcefoundry.org/hack) v3.003 (Regular, Bold,
@@ -709,16 +712,16 @@ app does.
   "Ember" (#21100A), with Dracula, Nord and Solarized Dark at their published values. All stay
   dark enough that dim ANSI text keeps its contrast. The same list backs the screensaver's
   background menu.
-- **Section boundaries** — the frosted surfaces (activity bar, sidebar) share one ground, so the
-  boundaries inside that world are drawn as hairlines in the active theme's `hairline` token
-  rather than left to a change of color: a full-height rule down the activity bar's right edge
-  (its icons carry no rules between them — the hover square is already the cell boundary) and a
-  themed divider between the sidebar and the pane world (AppKit's system divider is derived from
-  the appearance, not the palette, and vanishes on the darker themes). Between panes the boundary
-  is the well itself — the darker gutter each card floats in — while inside a card a rule under
-  the pane header and a rule between adjacent tabs in its tab bar (skipped beside the active tab,
-  whose own border already marks that edge) keep the internal structure. Everything follows a
-  theme switch live, gutters included.
+- **Section boundaries** — between surfaces the boundary is the well itself: the darker ground
+  shows in the gutter between the activity bar and the sidebar card, between the sidebar card and
+  the pane cards (where the split's thin divider paints the well too, so dragging to resize still
+  works but no line crosses the gutter), and between panes. The activity bar's icons carry no
+  rules between them — the hover square is already the cell boundary — and the bar itself needs
+  no edge rule since the well now separates it from everything to its right. Inside a card,
+  hairlines in the active theme's `hairline` token keep the internal structure: the sidebar
+  card's ring, a rule under the pane header, and a rule between adjacent tabs in its tab bar
+  (skipped beside the active tab, whose own border already marks that edge). Everything follows
+  a theme switch live, gutters included.
 
 ## Themes
 

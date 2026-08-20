@@ -232,6 +232,13 @@ enum Theme {
         /// hairline (see Pane.refreshBorder — the two widths are a state, not
         /// a constant).
         static let focusBorderWidth: CGFloat = 2
+        /// The well margin: how far every floating card stands off the window
+        /// edges and off its neighbors — the pane tree's contentInset, the
+        /// sidebar card's margins, and the activity bar's first-icon offset all
+        /// read this one value so the grounds line up. Matches the pane splits'
+        /// gutter (SuitSplitView.gutterThickness) on purpose: one rhythm for
+        /// every gap the well shows through.
+        static let wellInset: CGFloat = 6
 
         static let overlayRadius: CGFloat = 14
         static let switcherRowHeight: CGFloat = 32

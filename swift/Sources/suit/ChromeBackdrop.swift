@@ -34,6 +34,23 @@ final class ChromeBackdropView: NSView {
     private let effect = NSVisualEffectView(frame: .zero)
     private let tint = NSView(frame: .zero)
 
+    // Nonzero when the backdrop grounds a floating card (the sidebar) instead
+    // of a flush strip (the activity bar). An ancestor's masksToBounds is not
+    // enough for behind-window material — the window server shapes the blur
+    // region from the effect view itself, so a square backdrop under a rounded
+    // card leaks frost past the corners. maskImage is the supported hook: a
+    // stretchable rounded-rect template whose cap insets keep the corners
+    // unscaled at any size. The mask's corners are circular while the card's
+    // clip is a continuous curve; the divergence is sub-pixel at 10pt, and
+    // where they differ the translucent tint composites over the well instead
+    // of over blur — invisible in practice.
+    var cornerRadius: CGFloat = 0 {
+        didSet {
+            guard cornerRadius != oldValue else { return }
+            applyShape()
+        }
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         effect.material = .sidebar
@@ -43,6 +60,7 @@ final class ChromeBackdropView: NSView {
         tint.wantsLayer = true
         addSubview(tint)
         applyTheme()
+        applyShape()
         layoutParts()
     }
 
@@ -64,6 +82,28 @@ final class ChromeBackdropView: NSView {
     private func applyTheme() {
         effect.appearance = NSAppearance(named: Theme.current.isLight ? .vibrantLight : .vibrantDark)
         tint.layer?.backgroundColor = Theme.chromeTint.cgColor
+    }
+
+    private func applyShape() {
+        if cornerRadius > 0 {
+            let radius = cornerRadius
+            // Minimal stretchable canvas: one pixel of straight edge between
+            // the four unscaled corners.
+            let side = radius * 2 + 1
+            let mask = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+                NSColor.black.setFill()
+                NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+                return true
+            }
+            mask.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+            mask.resizingMode = .stretch
+            effect.maskImage = mask
+            tint.layer?.cornerRadius = radius
+            tint.layer?.cornerCurve = .continuous
+        } else {
+            effect.maskImage = nil
+            tint.layer?.cornerRadius = 0
+        }
     }
 
     private func layoutParts() {

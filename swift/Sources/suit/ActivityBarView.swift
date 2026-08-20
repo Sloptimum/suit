@@ -26,12 +26,11 @@ final class ActivityBarView: NSView {
 
     private var icons: [RailIconView] = []
     private let backdrop = ChromeBackdropView(frame: .zero)
-    // The right-edge rule is a *subview*, not a draw() fill. A view paints its
-    // own draw() output before its subviews, so once the frosted backdrop
-    // covered these bounds it hid a rule drawn here — silently, since the
-    // reference render has the sidebar collapsed and the split's own divider
-    // sits in almost the same column. Above the backdrop it survives.
-    private let edgeRule = NSView(frame: .zero)
+    // No right-edge rule any more. The rule existed because bar and panel once
+    // shared one flush frosted ground and needed a drawn seam; since the
+    // sidebar became a floating card the well itself shows between the strip
+    // and the card (and between the strip and the pane tree when the sidebar
+    // is collapsed), and a hairline beside that gutter read as a double edge.
 
     // A count in the corner of one tab's icon — the Source Control tab's
     // changed-file count, so a dirty tree is visible with the sidebar
@@ -43,14 +42,10 @@ final class ActivityBarView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
-        // The same frosted ground as the sidebar beside it — the two backdrops
-        // are contiguous behind-window material, so bar and panel read as one
-        // translucent left world with no seam.
+        // The same frosted material as the sidebar card beside it, but flush:
+        // the strip is fixed window chrome, so it runs edge to edge while the
+        // card floats — chrome is pinned, surfaces float.
         addSubview(backdrop)
-
-        edgeRule.wantsLayer = true
-        edgeRule.layer?.backgroundColor = Theme.hairline.cgColor
-        addSubview(edgeRule)
 
         for tab in SidebarView.Tab.railOrder {
             let icon = RailIconView(tab: tab)
@@ -71,7 +66,6 @@ final class ActivityBarView: NSView {
     // applyTheme(), exactly like SidebarView.reapplyTheme().
     func reapplyTheme() {
         backdrop.reapplyTheme()
-        edgeRule.layer?.backgroundColor = Theme.hairline.cgColor
         for icon in icons { icon.reapplyTheme() }
     }
 
@@ -83,21 +77,13 @@ final class ActivityBarView: NSView {
 
     // Manual layout, consistent with the rest of the window's chrome (Auto
     // Layout and NSSplitView's frame management don't mix here).
-    // The bar and the sidebar beside it share one frosted ground, which is the
-    // look — but it also means the strip has no edge and runs into the panel.
-    // One full-height hairline down the right edge gives it back, so the icons
-    // read as a column of their own. Deliberately the *only* rule here:
-    // per-icon separators were tried and read as a list of rows, which fought
-    // the hover square that is already the cell boundary.
     private func layoutContents() {
         backdrop.frame = bounds
-        edgeRule.frame = NSRect(x: bounds.maxX - 1, y: 0, width: 1, height: bounds.height)
         let size = RailIconView.size
-        // Shared with the sidebar's own top inset so the first icon and the tab
-        // content beside it start on one line — both clear the top edge by the
-        // same 5pt, and the icon's 40pt cell brackets the 28pt title band next
-        // to it.
-        let topPadding = SidebarView.topInset
+        // The sidebar card's well margin plus its interior top inset, so the
+        // first icon and the tab content inside the card still start on one
+        // line — the icon's 40pt cell brackets the 28pt title band next to it.
+        let topPadding = Theme.Metrics.wellInset + SidebarView.topInset
         let gap: CGFloat = 4
         // Unflipped coords: start at the top edge and walk down.
         var y = bounds.height - topPadding - size
