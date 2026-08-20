@@ -26,6 +26,12 @@ final class ActivityBarView: NSView {
 
     private var icons: [RailIconView] = []
     private let backdrop = ChromeBackdropView(frame: .zero)
+    // The right-edge rule is a *subview*, not a draw() fill. A view paints its
+    // own draw() output before its subviews, so once the frosted backdrop
+    // covered these bounds it hid a rule drawn here — silently, since the
+    // reference render has the sidebar collapsed and the split's own divider
+    // sits in almost the same column. Above the backdrop it survives.
+    private let edgeRule = NSView(frame: .zero)
 
     // A count in the corner of one tab's icon — the Source Control tab's
     // changed-file count, so a dirty tree is visible with the sidebar
@@ -41,6 +47,10 @@ final class ActivityBarView: NSView {
         // are contiguous behind-window material, so bar and panel read as one
         // translucent left world with no seam.
         addSubview(backdrop)
+
+        edgeRule.wantsLayer = true
+        edgeRule.layer?.backgroundColor = Theme.hairline.cgColor
+        addSubview(edgeRule)
 
         for tab in SidebarView.Tab.railOrder {
             let icon = RailIconView(tab: tab)
@@ -61,6 +71,7 @@ final class ActivityBarView: NSView {
     // applyTheme(), exactly like SidebarView.reapplyTheme().
     func reapplyTheme() {
         backdrop.reapplyTheme()
+        edgeRule.layer?.backgroundColor = Theme.hairline.cgColor
         for icon in icons { icon.reapplyTheme() }
     }
 
@@ -70,21 +81,17 @@ final class ActivityBarView: NSView {
         needsDisplay = true
     }
 
-    // The bar and the sidebar beside it share one frosted ground, which is the
-    // look — but it also means the strip has no edge and runs into the
-    // panel. One full-height hairline down the right edge gives it back, so the
-    // icons read as a column of their own. Deliberately the *only* rule here:
-    // per-icon separators were tried and read as a list of rows, which fought
-    // the hover square that is already the cell boundary.
-    override func draw(_ dirtyRect: NSRect) {
-        Theme.hairline.setFill()
-        NSRect(x: bounds.maxX - 1, y: 0, width: 1, height: bounds.height).fill()
-    }
-
     // Manual layout, consistent with the rest of the window's chrome (Auto
     // Layout and NSSplitView's frame management don't mix here).
+    // The bar and the sidebar beside it share one frosted ground, which is the
+    // look — but it also means the strip has no edge and runs into the panel.
+    // One full-height hairline down the right edge gives it back, so the icons
+    // read as a column of their own. Deliberately the *only* rule here:
+    // per-icon separators were tried and read as a list of rows, which fought
+    // the hover square that is already the cell boundary.
     private func layoutContents() {
         backdrop.frame = bounds
+        edgeRule.frame = NSRect(x: bounds.maxX - 1, y: 0, width: 1, height: bounds.height)
         let size = RailIconView.size
         // Shared with the sidebar's own top inset so the first icon and the tab
         // content beside it start on one line — both clear the top edge by the

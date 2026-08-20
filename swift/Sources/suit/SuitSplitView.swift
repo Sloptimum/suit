@@ -19,7 +19,14 @@ final class SuitSplitView: NSSplitView {
     // not a moat.
     var isPaneGutter = false
 
+    /// The gutter's width. Public because callers that ask "is there room to
+    /// split?" have to subtract it *before* the split exists — see
+    /// paneRequestedFooter.
+    static let gutterThickness: CGFloat = 6
+
     override var dividerColor: NSColor { isPaneGutter ? Theme.well : Theme.hairline }
 
-    override var dividerThickness: CGFloat { isPaneGutter ? 6 : super.dividerThickness }
+    override var dividerThickness: CGFloat {
+        isPaneGutter ? Self.gutterThickness : super.dividerThickness
+    }
 }

@@ -192,8 +192,16 @@ extension TerminalWindowController {
 
         // Sole pane (it's the tree root) — already full width, nothing to dock below.
         // Also refuse when the window is too short to stack two usable rows.
+        // The tree does not get the host's full height: the well margin takes an
+        // inset off each end and the gutter takes its thickness out of the
+        // middle, so both come off before the two rows are measured — without
+        // them a window right at the boundary docks a footer and leaves both
+        // rows under the minimum.
+        let usableHeight = paneTreeHost.bounds.height
+            - paneTreeHost.contentInset * 2
+            - SuitSplitView.gutterThickness
         guard let parentSplit = paneContainer.superview as? NSSplitView,
-              paneTreeHost.bounds.height >= minPaneHeight * 2 else {
+              usableHeight >= minPaneHeight * 2 else {
             NSSound.beep()
             return
         }

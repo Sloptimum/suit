@@ -3,9 +3,13 @@ import Cocoa
 // The window's top-level content view: the activity bar takes a fixed strip at
 // the far left and the body (sidebar split + pane tree) fills what's left. The
 // old window-level tab strip is gone — tabs now live on each pane's own in-pane
-// tab bar, and the sidebar's Sessions tab is the cross-pane overview. Terminal
-// transparency is a behind-window frost hosted per pane (see PaneContainerView),
-// not a single view behind the whole window.
+// tab bar, and the sidebar's Sessions tab is the cross-pane overview. This view
+// also paints the well the pane cards float on (see draw()).
+//
+// The one behind-window material in the window is the frosted ground under the
+// activity bar and the sidebar, and each of those hosts its own
+// (ChromeBackdropView). Nothing frosts the pane side: a pane's translucency is
+// its own background colour.
 //
 // The bar sits here rather than inside sidebarSplit on purpose: it must outlive
 // a Cmd-B collapse of the sidebar, and the split's delegate special-cases
