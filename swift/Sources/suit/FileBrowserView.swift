@@ -52,7 +52,7 @@ final class FileRowView: NSTableCellView {
         }
         let iconWidth: CGFloat = 14
         iconView.frame = NSRect(x: 2, y: (bounds.height - 14) / 2, width: iconWidth, height: 14)
-        let nameX = 2 + iconWidth + 4
+        let nameX = 2 + iconWidth + 3
         nameLabel.frame = NSRect(x: nameX, y: (bounds.height - 16) / 2, width: max(0, right - nameX - 4), height: 16)
     }
 
@@ -232,12 +232,22 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
         outlineView.addTableColumn(column)
         outlineView.outlineTableColumn = column
         outlineView.headerView = nil
-        // 24, not the 20 this asked for before: .sourceList silently inflated
-        // rows to 24 and that inflation is what shipped, so the height is stated
-        // here rather than inherited from a style we no longer use — dropping the
-        // style would otherwise tighten the whole tree as a side effect.
-        outlineView.rowHeight = 24
-        outlineView.indentationPerLevel = 12
+        // The tree is a list of short filenames read by scanning, not a list of
+        // records read one at a time, so the pitch is set for how many rows fit
+        // rather than for how comfortable one row is: 20pt rows with no gap
+        // between them (21 with the hover inset) against the 26 the old
+        // 24 + default 2pt intercell spacing gave. That is the same band the
+        // sidebar's other tree already uses (SearchView, 22), and it stays a
+        // full 14pt icon plus a 12pt label — nothing is scaled down to buy the
+        // height, only the empty space around it is removed. The height is
+        // stated here rather than inherited: .sourceList used to inflate rows to
+        // 24 on its own, and we no longer use that style.
+        outlineView.rowHeight = 20
+        outlineView.intercellSpacing = NSSize(width: 3, height: 0)
+        // 11, one step in from AppKit's 12: deep trees cost horizontal room the
+        // sidebar does not have, and the disclosure triangle still reads the
+        // level at this step.
+        outlineView.indentationPerLevel = 11
         outlineView.autoresizesOutlineColumn = false
         // .inset, not .sourceList: the source-list style makes AppKit install an
         // NSVisualEffectView (material .sidebar, blendingMode .behindWindow) as
