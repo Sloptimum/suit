@@ -703,7 +703,7 @@ app does.
   colors and speed. Terminals ground a step darker than the chrome: "Midnight" (#0A0C15 in Suit
   Dark — a blue-violet black that follows the active theme) is the default terminal background,
   giving shell output its own deeper layer, while "Slate" keeps the one-surface chrome ground
-  (#16171C) available per pane. Past those two the presets are hued rather than grey, so splits
+  (#17191D) available per pane. Past those two the presets are hued rather than grey, so splits
   are tellable apart at a glance: "Graphite" (#15171B) is the one neutral, then "Ink" (#0E1130),
   "Abyss" (#03202C), "Evergreen" (#08201A), "Deep Plum" (#1C0F2E), "Oxblood" (#230D14) and
   "Ember" (#21100A), with Dracula, Nord and Solarized Dark at their published values. All stay

@@ -35,7 +35,16 @@ extension Theme.Palette {
     /// predates the redesign and survived it.
     static let suitDark = Theme.Palette(
         name: "Suit Dark",
-        bg: Theme.rgb(0x16171C),
+        // Deliberately NOT restyled with the rest of the refresh. `bg` is the
+        // "Slate" preset in Pane.presetColors, and Pane.reapplyTheme decides
+        // whether a terminal follows a theme switch by comparing its stored
+        // ground against the *outgoing* palette's bg. Moving this value by even
+        // one level would orphan every terminal already sitting on Slate: the
+        // comparison would never match again, and those panes would be read as
+        // "the user picked this colour" and stay dark forever under a light
+        // theme. The refresh lives in the tokens above and below it instead,
+        // where nothing persisted points at the old value.
+        bg: Theme.rgb(0x17191D),
         // The terminal ground carries a blue-violet undertone the near-neutral
         // chrome doesn't: it reads as a deeper layer rather than one more grey,
         // and the cool cast is what makes the amber accent (and warm ANSI
