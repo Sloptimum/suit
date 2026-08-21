@@ -47,6 +47,10 @@ cp "$ROOT/Resources/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 # which wouldn't cover the bare `swiftc` dev binary the design render uses.
 cp -R "$ROOT/Resources/fonts" "$CONTENTS/Resources/fonts"
 
+# Bundle the first-launch guide (rendered as a markdown tab on the first ever
+# launch, and from the palette's "Open the Guide" — see FirstRunGuide.swift).
+cp "$ROOT/Resources/guide.md" "$CONTENTS/Resources/guide.md"
+
 # Bundle ripgrep (project-wide search) so the app doesn't depend on the user's
 # PATH. Skipped when rg isn't installed on the build machine; the app then
 # falls back to common install locations at runtime (see RipgrepSearch.swift).

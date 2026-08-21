@@ -74,6 +74,12 @@ app does.
   file is gone collapse out). Rename, delete, and overwrite layouts from the palette; layouts are
   per-machine, shared across windows, and kept in `~/.suit/layouts.json`. Distinct from the
   automatic, unnamed quit-time restoration above.
+- **First-launch guide** — the very first launch (no saved state to restore, never shown
+  before) opens a short markdown tab beside the fresh shell that teaches the tab/pane model
+  and its keys (⌘T, ⌘D, ⇧⌘D, ⌥⌘W, ⌥⌘arrows, ⌘K…). It is an ordinary tab: close it with ⌘W,
+  leave it open and restoration brings it back. Reopen it any time from the command palette —
+  **Open the Guide (tabs, panes, shortcuts)**. An existing install that upgrades onto this
+  feature is not greeted: restoring windows counts as proof the tutorial isn't needed.
 
 ## Files, search & navigation
 
@@ -123,8 +129,11 @@ app does.
   sit *inside* the pattern field, and the chevron in the left gutter folds the replacement row
   away. **⋯** below the fields holds the glob filter and the Project / Sub-project / Pane
   Directory scope, and glows amber whenever one of them is shaping results while hidden. Results
-  stream in grouped by file — name, path and match count, with the Files tree's type icon — and
-  clicking a match opens it in the viewer at that line.
+  stream in grouped by file — name, the file's folder (it keeps a sliver of width even when the
+  sidebar is narrow, because "which one of these is from Tests/" is the question the row answers)
+  and a match-count pill, with the Files tree's type icon. Each match line is a single snippet with
+  its hits washed in the same yellow the open viewers use, and clicking one opens the viewer at
+  that line (the row's tooltip carries the exact `path:line`).
   **Esc** clears the pattern; **Esc** on an already-empty field hands the sidebar back to Files.
 - **Search toolbar** — the header carries **Refresh** (re-run without retyping), **Clear**,
   **View as List / Tree** (one flat row per match, each naming its file, versus the file tree) and

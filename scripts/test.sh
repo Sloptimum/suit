@@ -56,6 +56,7 @@ HARNESSES=(
   "notes|scripts/notes-test.sh|fast"
   "untitled-documents|scripts/untitled-documents-test.sh|fast"
   "bundled-fonts|scripts/bundled-fonts-test.sh|fast"
+  "first-run-guide|scripts/first-run-guide-test.sh|fast"
   "source-control-gate|scripts/source-control-gate-test.sh|slow"
 )
 

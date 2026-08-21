@@ -171,7 +171,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
         // Reopen with the last quit's layout when one was saved (state
         // restoration); otherwise the classic single shell in the last cwd.
-        if let saved = SavedAppState.load() {
+        let saved = SavedAppState.load()
+        if let saved {
             for windowState in saved.windows {
                 let controller = TerminalWindowController(
                     appDelegate: self,
@@ -185,7 +186,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if windowControllers.isEmpty {
             let controller = openWindow(startDirectory: savedWorkingDirectory())
             controller.window.makeKeyAndOrderFront(nil)
+            // The very first launch also opens the guide tab beside the shell
+            // (see FirstRunGuide.swift for what counts as "first").
+            if FirstRunGuide.shouldShow(
+                hasSavedState: saved != nil,
+                alreadyShown: UserDefaults.standard.bool(forKey: FirstRunGuide.shownDefaultsKey)
+            ), let guide = FirstRunGuide.guideURL(resourceURL: Bundle.main.resourceURL) {
+                controller.openFile(atPath: guide.path, line: nil)
+            }
         }
+        // Latched on every launch, not only after showing: an existing install
+        // that restored its windows just proved it needs no tutorial.
+        UserDefaults.standard.set(true, forKey: FirstRunGuide.shownDefaultsKey)
 
         NSApp.activate(ignoringOtherApps: true)
 

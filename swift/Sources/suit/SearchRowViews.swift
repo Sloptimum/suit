@@ -27,19 +27,30 @@ final class SearchFileRowView: NSTableCellView {
     private let dismissButton = NSButton(frame: .zero)
 
     private var isHovered = false
-    // The file name's width, measured from the string in configure().
+    // Text widths measured from the strings in configure().
     // NSTextField.intrinsicContentSize is not usable here: on a label that
     // truncates, it reports the width the label *currently* has, so laying the
     // row out from it ratchets the name narrower every pass until the middle of
     // every filename is an ellipsis.
     private var nameWidth: CGFloat = 0
+    private var directoryWidth: CGFloat = 0
+    // When the row is too narrow for both, the directory shrinks first — but
+    // only down to this floor. Head-truncated, "…/Store" still answers "where
+    // is this from", which is the question the row exists for; an invisible
+    // directory answers nothing, and that was exactly the old failure at
+    // sidebar widths. 44pt fits an innermost directory name at 10pt; when the
+    // name must also give ground, its middle-truncation keeps the prefix and
+    // the extension, and the directory beside it does the disambiguating.
+    private static let directoryFloor: CGFloat = 44
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         iconView.imageScaling = .scaleProportionallyDown
         addSubview(iconView)
 
-        nameLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        // Regular, not medium: this row sits one tab over from the Files tree
+        // (system 12 regular) and should read as the same species of row.
+        nameLabel.font = .systemFont(ofSize: 12)
         nameLabel.lineBreakMode = .byTruncatingMiddle
         addSubview(nameLabel)
 
@@ -47,10 +58,9 @@ final class SearchFileRowView: NSTableCellView {
         directoryLabel.lineBreakMode = .byTruncatingHead
         addSubview(directoryLabel)
 
-        countLabel.font = .systemFont(ofSize: 9, weight: .semibold)
+        countLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .medium)
         countLabel.alignment = .center
         countLabel.wantsLayer = true
-        countLabel.layer?.cornerRadius = 3
         addSubview(countLabel)
 
         configure(action: replaceButton, symbol: "arrow.left.arrow.right",
@@ -113,21 +123,29 @@ final class SearchFileRowView: NSTableCellView {
             }
             right -= 4
         } else {
-            let countWidth = countLabel.intrinsicContentSize.width + 8
+            let countHeight: CGFloat = 15
+            let countWidth = max(countHeight, countLabel.intrinsicContentSize.width + 10)
             right -= countWidth
-            countLabel.frame = NSRect(x: right, y: (bounds.height - 14) / 2, width: countWidth, height: 14)
-            right -= 4
+            countLabel.frame = NSRect(x: right, y: (bounds.height - countHeight) / 2,
+                                      width: countWidth, height: countHeight)
+            // Half the height, so any count from "3" to "1400" sits in a pill.
+            countLabel.layer?.cornerRadius = countHeight / 2
+            right -= 6
         }
 
         let left = iconView.frame.maxX + 6
-        // The name takes what it needs and the directory gets the rest: a path
-        // is the thing worth losing characters off, a filename isn't.
-        let shownName = min(nameWidth, max(0, right - left))
+        let available = max(0, right - left)
+        // The name yields to the directory's floor and nothing else: a filename
+        // is worth more characters than a path, but a path squeezed to zero
+        // width strips the row of its provenance, which matters more than the
+        // tail of a long name.
+        let reserved = directoryWidth == 0 ? 0 : min(directoryWidth, Self.directoryFloor) + 6
+        let shownName = min(nameWidth, max(0, available - reserved))
         nameLabel.frame = NSRect(x: left, y: (bounds.height - 16) / 2, width: shownName, height: 16)
         let directoryX = nameLabel.frame.maxX + 6
         directoryLabel.frame = NSRect(
             x: directoryX, y: (bounds.height - 14) / 2,
-            width: max(0, right - directoryX), height: 14
+            width: max(0, min(directoryWidth, right - directoryX)), height: 14
         )
     }
 
@@ -139,8 +157,11 @@ final class SearchFileRowView: NSTableCellView {
         // still draws an ellipsis, which is the difference between "SearchView.swift"
         // and "Search…w.swift".
         nameWidth = ceil((name as NSString).size(withAttributes: [.font: nameLabel.font as Any]).width) + 6
-        directoryLabel.stringValue = (group.relativePath as NSString).deletingLastPathComponent
+        let directory = (group.relativePath as NSString).deletingLastPathComponent
+        directoryLabel.stringValue = directory
         directoryLabel.textColor = Theme.textFaint
+        directoryWidth = directory.isEmpty ? 0
+            : ceil((directory as NSString).size(withAttributes: [.font: directoryLabel.font as Any]).width) + 6
         countLabel.stringValue = "\(group.matches.count)"
         countLabel.textColor = Theme.textDim
         countLabel.layer?.backgroundColor = Theme.hover.cgColor
@@ -158,14 +179,15 @@ final class SearchFileRowView: NSTableCellView {
     }
 }
 
-// A match row: the line's text with the matched ranges emphasized, the line
-// number parked faintly at the trailing edge, and an indent guide running down
-// the left so a long run of hits reads as belonging to one file. In list mode
-// the file name leads the row instead of the guide, because there is no header
-// row above it to have named the file.
+// A match row: the line's text with the matched ranges washed in the same
+// searchHit amber the open panes use for this pattern, and an indent guide
+// running down the left so a long run of hits reads as belonging to one file.
+// No line number — the row's job is "which hit is this", the click answers
+// "where exactly", and the tooltip still carries path:line for the curious.
+// In list mode the file name leads the row instead of the guide, because there
+// is no header row above it to have named the file.
 final class SearchMatchRowView: NSTableCellView {
     private let label = NSTextField(labelWithString: "")
-    private let lineLabel = NSTextField(labelWithString: "")
 
     private var isHovered = false
     private var drawsGuide = true
@@ -174,11 +196,8 @@ final class SearchMatchRowView: NSTableCellView {
         super.init(frame: frameRect)
         label.lineBreakMode = .byTruncatingTail
         label.maximumNumberOfLines = 1
+        label.cell?.usesSingleLineMode = true
         addSubview(label)
-
-        lineLabel.font = .monospacedDigitSystemFont(ofSize: 9, weight: .regular)
-        lineLabel.alignment = .right
-        addSubview(lineLabel)
 
         addTrackingArea(NSTrackingArea(
             rect: .zero,
@@ -209,25 +228,27 @@ final class SearchMatchRowView: NSTableCellView {
     override func layout() {
         super.layout()
         isHovered = hovered(in: self)
-        let lineWidth: CGFloat = 34
-        lineLabel.frame = NSRect(x: max(0, bounds.width - lineWidth - 4), y: (bounds.height - 13) / 2,
-                                 width: lineWidth, height: 13)
         let left: CGFloat = drawsGuide ? 10 : 4
         label.frame = NSRect(x: left, y: (bounds.height - 16) / 2,
-                             width: max(0, lineLabel.frame.minX - 4 - left), height: 16)
+                             width: max(0, bounds.width - 6 - left), height: 16)
     }
 
     func configure(with node: SearchMatchNode, showsFile: Bool = false) {
         let match = node.match
         drawsGuide = !showsFile
-        lineLabel.stringValue = "\(match.lineNumber)"
-        lineLabel.textColor = Theme.textFaint
 
         // Trim leading indentation so deeply-nested code doesn't push the
         // match itself out of the truncated row.
         let trimmed = match.lineText.drop(while: { $0 == " " || $0 == "\t" })
         let trimOffset = match.lineText.utf16.count - trimmed.utf16.count
         let snippet = String(trimmed.prefix(300))
+
+        // An attributed value carries its own wrapping and ignores the field's:
+        // without this paragraph style the rows wrap to a second line the 22pt
+        // row height then clips, which is how the results list once turned to
+        // visual rubble.
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byTruncatingTail
 
         let text = NSMutableAttributedString()
         if showsFile {
@@ -252,12 +273,17 @@ final class SearchMatchRowView: NSTableCellView {
             let shifted = NSRange(location: range.location - trimOffset + snippetStart, length: range.length)
             guard shifted.location >= snippetStart,
                   shifted.location + shifted.length <= snippetStart + snippetLength else { continue }
+            // searchHit, not selection: the same wash the open panes put behind
+            // this pattern, so the list and the panes visibly agree about what
+            // "a hit" is. Weight stays regular — in a monospaced run a medium
+            // face changes no widths but does make the wash look like a smear.
             text.addAttributes([
-                .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .medium),
                 .foregroundColor: Theme.textPrimary,
-                .backgroundColor: Theme.selection,
+                .backgroundColor: Theme.searchHit,
             ], range: shifted)
         }
+        text.addAttribute(.paragraphStyle, value: paragraph,
+                          range: NSRange(location: 0, length: text.length))
         label.attributedStringValue = text
         toolTip = "\(match.relativePath):\(match.lineNumber)"
         needsLayout = true
