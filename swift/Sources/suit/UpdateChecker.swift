@@ -13,7 +13,7 @@ import Cocoa
 // Updates… entry ignores the skip and the throttle.
 final class UpdateChecker {
     // Where releases are published — the repo this app is built from.
-    static let repo = "ivibedathing/suit"
+    static let repo = "Sloptimum/suit"
 
     private static let checkInterval: TimeInterval = 24 * 60 * 60
     private static let timerInterval: TimeInterval = 6 * 60 * 60
