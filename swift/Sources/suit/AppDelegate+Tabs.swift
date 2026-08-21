@@ -97,6 +97,19 @@ extension AppDelegate {
         current.newUntitledFile()
     }
 
+    // The palette's "Open the Guide": the first-launch tour, on demand. The
+    // one-tab-per-path rule makes this re-activate an already-open guide
+    // rather than stack a second copy. Same no-window fallback as ⌘T.
+    @objc func openFirstRunGuide(_ sender: Any?) {
+        guard let guide = FirstRunGuide.guideURL(resourceURL: Bundle.main.resourceURL) else { return }
+        guard let current = activeWindowController() else {
+            newWindow(sender)
+            activeWindowController()?.openFile(atPath: guide.path, line: nil)
+            return
+        }
+        current.openFile(atPath: guide.path, line: nil)
+    }
+
     // ⌃⌘C / the strip's ✦: a new terminal tab that immediately runs claude
     // (with the settings-configured default arguments).
     @objc func newClaudeSession(_ sender: Any?) {

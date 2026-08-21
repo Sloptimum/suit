@@ -74,6 +74,12 @@ app does.
   file is gone collapse out). Rename, delete, and overwrite layouts from the palette; layouts are
   per-machine, shared across windows, and kept in `~/.suit/layouts.json`. Distinct from the
   automatic, unnamed quit-time restoration above.
+- **First-launch guide** — the very first launch (no saved state to restore, never shown
+  before) opens a short markdown tab beside the fresh shell that teaches the tab/pane model
+  and its keys (⌘T, ⌘D, ⇧⌘D, ⌥⌘W, ⌥⌘arrows, ⌘K…). It is an ordinary tab: close it with ⌘W,
+  leave it open and restoration brings it back. Reopen it any time from the command palette —
+  **Open the Guide (tabs, panes, shortcuts)**. An existing install that upgrades onto this
+  feature is not greeted: restoring windows counts as proof the tutorial isn't needed.
 
 ## Files, search & navigation
 

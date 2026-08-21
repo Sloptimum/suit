@@ -453,6 +453,7 @@ extension AppDelegate {
             PaletteCommand(title: "Toggle Word Wrap", shortcut: nil) { [weak self] in self?.toggleWordWrap(nil) },
             PaletteCommand(title: "Switch Theme…", shortcut: nil) { [weak self] in self?.switchTheme(nil) },
             PaletteCommand(title: "Settings…", shortcut: "⌘,") { [weak self] in self?.showSettings(nil) },
+            PaletteCommand(title: "Open the Guide (tabs, panes, shortcuts)", shortcut: nil) { [weak self] in self?.openFirstRunGuide(nil) },
             PaletteCommand(title: "Install Claude Code Integration…", shortcut: nil) { [weak self] in self?.installClaudeIntegration(nil) },
             PaletteCommand(title: "Check for Updates…", shortcut: nil) { [weak self] in self?.checkForUpdates(nil) },
         ] + sshHostCommands() + recipeCommands() + promptLibraryCommands()
