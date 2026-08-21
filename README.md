@@ -329,5 +329,5 @@ rules for coding agents, and is written in ASD-STE100 Simplified Technical Engli
 
 ## License
 
-[MIT](LICENSE) — © 2026 ivibedathing. Use it, copy it, change it and distribute it; keep the
+[MIT](LICENSE) — © 2026 Sloptimum. Use it, copy it, change it and distribute it; keep the
 copyright and permission notices.
