@@ -18,8 +18,8 @@ import Cocoa
 //     └──────────────────── AB ┘  ⇄                 ← replacement, Replace All
 //                                  ⋯                ← scope / globs live here
 //   8 results in 1 file — suit
-//   ▾ 🖹 build.sh  scripts/          3   ⇄ ✕        ← file row, actions on hover
-//     │ APP="$BUILD_DIR/Suit.app"              12
+//   ▾ 🖹 build.sh  scripts/         (3)  ⇄ ✕        ← file row, pill count, actions on hover
+//     │ APP="$BUILD_DIR/Suit.app"
 //
 // Two ideas carry the layout. The mode toggles sit *inside* the field they
 // modify (SearchFieldBox) instead of on a row of their own, so ".*" reads as
@@ -346,17 +346,21 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
         replaceToggle.frame = NSRect(x: 2, y: y, width: 16, height: max(0, blockTop - y))
 
         // "⋯" is the disclosure for the scope and glob controls, so it sits
-        // above them and stays put when they hide.
-        y -= 20
-        detailsToggle.frame = NSRect(x: bounds.width - padding - button, y: y, width: button, height: 18)
+        // above them and stays put when they toggle — tucked against the field
+        // block in a thin row of its own, the way VS Code parks it. The old
+        // layout gave it a fatter band and another 24pt before the status line,
+        // which is where most of the tab's dead air lived.
+        y -= 2 + 16
+        detailsToggle.frame = NSRect(x: bounds.width - padding - button, y: y, width: button, height: 16)
         if detailsExpanded {
-            y -= 22
+            y -= 2 + 20
             scopePicker.frame = NSRect(x: left, y: y, width: boxWidth, height: 20)
-            y -= SearchFieldBox.height + 4
+            y -= 4 + SearchFieldBox.height
             globBox.frame = NSRect(x: left, y: y, width: boxWidth, height: SearchFieldBox.height)
         }
 
-        y -= 24
+        // The status line sits directly on the list it is counting.
+        y -= 6 + 16
         statusLabel.frame = NSRect(x: padding, y: y, width: max(0, bounds.width - padding * 2), height: 16)
 
         scrollView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: max(0, y - 4))
