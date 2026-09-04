@@ -125,6 +125,25 @@ do {
     store.remove(name: "review")
     store.reload()
     check(store.isEmpty, "delete persists")
+
+    // A present-but-unreadable file must be quarantined, not wiped by the next
+    // save (the StoreFile contract; Layouts used to bypass it with a bare try?).
+    let home = ProcessInfo.processInfo.environment["HOME"]!
+    let path = home + "/.suit/layouts.json"
+    try! "{ this is not json".write(toFile: path, atomically: true, encoding: .utf8)
+    store.reload()
+    check(store.isEmpty, "a corrupt layouts.json loads as empty")
+    let suitDir = home + "/.suit"
+    let quarantined = (try! FileManager.default.contentsOfDirectory(atPath: suitDir))
+        .filter { $0.hasPrefix("layouts.json.corrupt-") }
+    check(quarantined.count == 1, "the corrupt file is moved aside as layouts.json.corrupt-<epoch>")
+    store.save(name: "after-corruption", window: w)
+    let stillThere = (try! FileManager.default.contentsOfDirectory(atPath: suitDir))
+        .filter { $0.hasPrefix("layouts.json.corrupt-") }
+    check(stillThere.count == 1, "saving afterwards leaves the quarantined bytes in place")
+    check(try! String(contentsOfFile: suitDir + "/" + stillThere[0], encoding: .utf8) == "{ this is not json",
+          "the quarantined file holds the original bytes")
+    store.remove(name: "after-corruption")
 }
 
 // MARK: - Restore-time pruning (deleted file collapses its pane)

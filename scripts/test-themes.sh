@@ -29,6 +29,7 @@ if ! swiftc -O \
     "$ROOT/swift/Sources/suit/Theme.swift" \
     "$ROOT/swift/Sources/suit/Theme+Palettes.swift" \
     "$ROOT/swift/Sources/suit/ThemeStore.swift" \
+    "$ROOT/swift/Sources/suit/StoreFile.swift" \
     "$ROOT/scripts/themes-test/main.swift" \
     -o "$DRIVER"; then
     echo "COMPILE FAILED"

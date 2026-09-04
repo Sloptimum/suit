@@ -36,7 +36,7 @@ current in this file. Tick a box in the same commit that finishes the step.
       `/usr/bin/git` literals with one constant. Fixes the stdout-then-stderr deadlock in
       `GitBranches.spawn` and `WorktreeTasks.runGit`, and makes Fleet's and WorktreeTasks' git
       calls visible in the ops log.
-- [ ] **2. Quarantine unreadable stores.** `Layouts.load` and `ThemeStore.loadSelection` go
+- [x] **2. Quarantine unreadable stores.** `Layouts.load` and `ThemeStore.loadSelection` go
       through `StoreFile.load`, so a corrupt file is moved aside instead of overwritten on the
       next save.
 - [ ] **3. One home-directory resolver.** `SuitPaths.home` / `SuitPaths.directory` replace the

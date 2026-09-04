@@ -25,6 +25,7 @@ trap 'rm -f "$DRIVER"; rm -rf "$SCRATCH"' EXIT
 echo "==> Compiling saved-layouts logic test"
 if ! swiftc -O \
     "$ROOT/swift/Sources/suit/Layouts.swift" \
+    "$ROOT/swift/Sources/suit/StoreFile.swift" \
     "$ROOT/swift/Sources/suit/StateRestoration.swift" \
     "$ROOT/swift/Sources/suit/DiffReview.swift" \
     "$ROOT/scripts/layouts-test/main.swift" \

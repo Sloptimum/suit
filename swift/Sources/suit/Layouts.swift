@@ -209,9 +209,10 @@ final class LayoutStore {
         load()
     }
 
+    // StoreFile.load rather than a bare try?: a present-but-unreadable file is
+    // quarantined, so the next persist() can't overwrite the user's layouts.
     private func load() {
-        guard let data = try? Data(contentsOf: fileURL),
-              let decoded = try? JSONDecoder().decode(Model.self, from: data) else { return }
+        guard let decoded = StoreFile.load(Model.self, from: fileURL.path) else { return }
         model = decoded
     }
 
