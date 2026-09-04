@@ -315,7 +315,7 @@ extension GitView {
         refreshCommitBox()
         guard amendMode, commitTextView.string.isEmpty, let root = gitRoot else { return }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let previous = runProcess("/usr/bin/git", ["-C", root, "log", "-1", "--pretty=%B"])?
+            let previous = runProcess(Git.executable, ["-C", root, "log", "-1", "--pretty=%B"])?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             DispatchQueue.main.async {
                 guard let self, self.amendMode, let previous, !previous.isEmpty,

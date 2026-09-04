@@ -25,14 +25,13 @@ struct GitBranchInfo {
 }
 
 enum GitBranchList {
-    private static let git = "/usr/bin/git"
 
     // The repo's local branches, current first, then alphabetical. Ahead/behind
     // come from `%(upstream:track)` in one for-each-ref pass rather than a
     // rev-list per branch; dirtiness is one `git status` per *worktree* (few),
     // cached so branches sharing a worktree don't re-run it.
     static func compute(root: String, currentBranch: String?) -> [GitBranchInfo] {
-        guard let output = runProcess(git, [
+        guard let output = runProcess(Git.executable, [
             "-C", root, "for-each-ref",
             "--format=%(refname:short)%09%(upstream:short)%09%(upstream:track,nobracket)",
             "refs/heads",
@@ -83,7 +82,7 @@ enum GitBranchList {
     // the remote — refs go stale until the next `fetch --prune`, exactly as
     // git's own "gone" marker does.
     private static func remoteRefs(root: String) -> Set<String> {
-        guard let output = runProcess(git, [
+        guard let output = runProcess(Git.executable, [
             "-C", root, "for-each-ref", "--format=%(refname:short)", "refs/remotes",
         ]) else { return [] }
         return Set(output.split(separator: "\n", omittingEmptySubsequences: true).map(String.init))
@@ -93,7 +92,7 @@ enum GitBranchList {
     // `git worktree list --porcelain` (blocks of "worktree <path>" then
     // "branch refs/heads/<name>").
     private static func worktreeBranchMap(root: String) -> [String: String] {
-        guard let output = runProcess(git, ["-C", root, "worktree", "list", "--porcelain"]) else {
+        guard let output = runProcess(Git.executable, ["-C", root, "worktree", "list", "--porcelain"]) else {
             return [:]
         }
         var map: [String: String] = [:]
@@ -216,13 +215,13 @@ enum GitHubCLI {
         // Both of these are probes — an unset origin/HEAD and a repo with no
         // `main` are ordinary answers, so they don't log as failures.
         if let head = runProcess(
-            "/usr/bin/git", ["-C", root, "symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"],
+            Git.executable, ["-C", root, "symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"],
             probe: true
         )?.trimmingCharacters(in: .whitespacesAndNewlines), !head.isEmpty {
             return (head as NSString).lastPathComponent
         }
         for candidate in ["main", "master"] {
-            if runProcess("/usr/bin/git", ["-C", root, "rev-parse", "--verify", "-q", candidate], probe: true) != nil {
+            if runProcess(Git.executable, ["-C", root, "rev-parse", "--verify", "-q", candidate], probe: true) != nil {
                 return candidate
             }
         }
@@ -233,7 +232,7 @@ enum GitHubCLI {
     // default branch, one bullet each (empty when the base can't be resolved).
     static func commitBody(root: String, branch: String) -> String {
         guard let base = defaultBranch(root: root), base != branch,
-              let log = runProcess("/usr/bin/git", ["-C", root, "log", "--format=%s", "\(base)..\(branch)"])
+              let log = runProcess(Git.executable, ["-C", root, "log", "--format=%s", "\(base)..\(branch)"])
         else { return "" }
         let subjects = log.split(separator: "\n", omittingEmptySubsequences: true).map { "- \($0)" }
         return subjects.joined(separator: "\n")
@@ -399,53 +398,18 @@ enum GitHubCLI {
 
     // gh with stdout/stderr captured; stderr's first line is the error message.
     // gh has no `-C` flag (that's a git-ism) — it's pointed at a repo by its
-    // working directory instead.
+    // working directory instead, which is also what the ops-log row names,
+    // since argv carries no repo.
     private static func run(_ executable: String, cwd: String, _ arguments: [String]) -> Result<String, WorktreeTaskError> {
-        let derived = OpsLabel.derive(executable: executable, arguments: arguments)
-        let watch = OpsStopwatch()
-        let result = spawn(executable, cwd: cwd, arguments)
-        OpsLog.shared.record(
-            kind: derived.kind, label: derived.label,
-            // gh has no -C, so argv carries no repo — the cwd is what says
-            // which checkout the call was about.
-            detail: derived.detail ?? (cwd as NSString).lastPathComponent,
-            trigger: OpsLog.currentTrigger,
-            startedAt: watch.startedAt, duration: watch.elapsed,
-            outcome: {
-                switch result {
-                case .success(let output): return output.isEmpty ? .empty : .ok
-                case .failure: return .failed
-                }
-            }()
-        )
-        return result
-    }
-
-    // The uninstrumented spawn — see runProcess in FileIndex.swift for why the
-    // timing wrapper sits above rather than inside.
-    private static func spawn(_ executable: String, cwd: String, _ arguments: [String]) -> Result<String, WorktreeTaskError> {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
-        process.currentDirectoryURL = URL(fileURLWithPath: cwd)
-        let stdout = Pipe(), stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
-        // gh reads config/creds relative to $HOME; keep the inherited env.
+        let result: ProcessResult
         do {
-            try process.run()
+            result = try runProcessCapturing(
+                executable, arguments, cwd: cwd, detail: (cwd as NSString).lastPathComponent
+            )
         } catch {
             return .failure(WorktreeTaskError(message: error.localizedDescription))
         }
-        let outData = stdout.fileHandleForReading.readDataToEndOfFile()
-        let errData = stderr.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        if process.terminationStatus == 0 {
-            return .success(String(decoding: outData, as: UTF8.self))
-        }
-        let message = String(decoding: errData, as: UTF8.self)
-            .split(separator: "\n").first.map(String.init)
-            ?? "gh exited \(process.terminationStatus)"
-        return .failure(WorktreeTaskError(message: message.trimmingCharacters(in: .whitespaces)))
+        if result.succeeded { return .success(result.stdout) }
+        return .failure(WorktreeTaskError(message: result.firstStderrLine ?? "gh exited \(result.status)"))
     }
 }

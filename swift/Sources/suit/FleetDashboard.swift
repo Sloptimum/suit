@@ -503,18 +503,9 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     }
 
     private static func gitBranch(cwd: String) -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        process.arguments = ["-C", cwd, "symbolic-ref", "--short", "-q", "HEAD"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { return nil }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else { return nil }
-        let branch = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        return branch.isEmpty ? nil : branch
+        let branch = runProcess(Git.executable, ["-C", cwd, "symbolic-ref", "--short", "-q", "HEAD"])?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return branch?.isEmpty == false ? branch : nil
     }
 
     // The union of every session repo's worktrees, deduped by path — the raw
@@ -552,17 +543,7 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     // porcelain form is blocks of `worktree <path>` / optional `branch
     // refs/heads/<name>` / `detached`, separated by blank lines.
     private static func listWorktrees(cwd: String) -> [SubagentTreeWorktree] {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        process.arguments = ["-C", cwd, "worktree", "list", "--porcelain"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { return [] }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else { return [] }
-        let text = String(decoding: data, as: UTF8.self)
+        guard let text = runProcess(Git.executable, ["-C", cwd, "worktree", "list", "--porcelain"]) else { return [] }
 
         var result: [SubagentTreeWorktree] = []
         var path: String?

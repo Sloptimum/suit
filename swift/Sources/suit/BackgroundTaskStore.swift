@@ -184,44 +184,18 @@ final class BackgroundTaskStore {
 
     // The listening TCP port a pid is bound to, via lsof — parsed by the pure
     // BackgroundTasks.parseListeningPort. nil when lsof is absent or the process
-    // isn't listening.
+    // isn't listening. Instrumented like the rest of Suit's unbidden work: this
+    // runs on the monitor's reconcile pass, once per tracked task, and a
+    // stalled `lsof` (a hung NFS mount is the classic) is invisible without a
+    // row saying so. lsof exits 1 when nothing matches, which for "is it
+    // listening?" is the answer no — a probe, not a failure.
     private static func listeningPort(ofPid pid: Int32) -> Int? {
-        guard let output = runLsof(["-nP", "-p", "\(pid)", "-iTCP", "-sTCP:LISTEN"]) else { return nil }
-        return BackgroundTasks.parseListeningPort(lsof: output)
-    }
-
-    // Instrumented like the rest of Suit's unbidden work: this runs on the
-    // monitor's reconcile pass, once per tracked task, and a stalled `lsof`
-    // (a hung NFS mount is the classic) is invisible without a row saying so.
-    private static func runLsof(_ args: [String]) -> String? {
-        let watch = OpsStopwatch()
-        let output = spawnLsof(args)
-        OpsLog.shared.record(
-            kind: .process, label: "lsof",
-            detail: args.firstIndex(of: "-p").flatMap { args.indices.contains($0 + 1) ? "pid \(args[$0 + 1])" : nil },
-            trigger: "task monitor",
-            startedAt: watch.startedAt, duration: watch.elapsed,
-            outcome: output.map { $0.isEmpty ? .empty : .ok } ?? .failed
-        )
-        return output
-    }
-
-    private static func spawnLsof(_ args: [String]) -> String? {
         let candidates = ["/usr/sbin/lsof", "/usr/bin/lsof"]
-        guard let path = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { return nil }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = args
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        do {
-            try process.run()
-        } catch {
-            return nil
-        }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return String(data: data, encoding: .utf8)
+        guard let lsof = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { return nil }
+        guard let output = runProcess(
+            lsof, ["-nP", "-p", "\(pid)", "-iTCP", "-sTCP:LISTEN"],
+            trigger: "task monitor", probe: true, detail: "pid \(pid)"
+        ) else { return nil }
+        return BackgroundTasks.parseListeningPort(lsof: output)
     }
 }

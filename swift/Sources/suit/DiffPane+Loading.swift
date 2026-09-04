@@ -8,7 +8,7 @@ extension DiffPaneContent {
     func loadGitDiff(root: String) {
         gitRoot = root
         let producer = {
-            runProcess("/usr/bin/git", ["-C", root, "diff", "HEAD"]) ?? ""
+            runProcess(Git.executable, ["-C", root, "diff", "HEAD"]) ?? ""
         }
         reload = producer
         setDiff(producer(), status: (root as NSString).lastPathComponent)

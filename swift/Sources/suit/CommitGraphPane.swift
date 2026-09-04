@@ -135,7 +135,7 @@ final class CommitGraphPaneContent: NSObject, PaneContent {
         // Ask for one extra so we can tell whether more history exists.
         let arguments = ["-C", root] + CommitGraph.logArguments + ["-n", "\(cap + 1)"]
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            let output = runProcess("/usr/bin/git", arguments) ?? ""
+            let output = runProcess(Git.executable, arguments) ?? ""
             let commits = CommitGraph.parse(output)
             let hasMore = commits.count > cap
             let layout = CommitGraph.layout(commits, maxNodes: cap)

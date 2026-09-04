@@ -8,7 +8,6 @@ import Foundation
 // ClaudeSessionMonitor off-thread. The model, parsing, attribution and prompt
 // composition live in the UI-free `FeedbackRouting`.
 enum FeedbackInbox {
-    private static let git = "/usr/bin/git"
 
     // A live session, as the caller hands it in (read on the main thread).
     struct SessionRef {
@@ -30,7 +29,7 @@ enum FeedbackInbox {
         var events: [FeedbackEvent] = []
         for worktree in listWorktrees(root: root) {
             // Merge conflicts: read the worktree's own working-tree state.
-            if let porcelain = runProcess(git, ["-C", worktree.path, "status", "--porcelain"]) {
+            if let porcelain = runProcess(Git.executable, ["-C", worktree.path, "status", "--porcelain"]) {
                 let conflicts = FeedbackRouting.conflictedFiles(porcelain: porcelain)
                 if !conflicts.isEmpty {
                     events.append(FeedbackEvent(
@@ -84,7 +83,7 @@ enum FeedbackInbox {
     // refs/heads/<name>" (or "detached") per block. (GitView+Worktrees has a
     // private twin; this copy keeps the inbox self-contained.)
     private static func listWorktrees(root: String) -> [(path: String, branch: String?)] {
-        guard let output = runProcess(git, ["-C", root, "worktree", "list", "--porcelain"]) else { return [] }
+        guard let output = runProcess(Git.executable, ["-C", root, "worktree", "list", "--porcelain"]) else { return [] }
         var result: [(path: String, branch: String?)] = []
         for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
             if line.hasPrefix("worktree ") {

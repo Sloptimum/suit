@@ -29,7 +29,7 @@ current in this file. Tick a box in the same commit that finishes the step.
 - [x] Cut the branch, bump the version, write this plan.
 
 ### Phase 1 — correctness
-- [ ] **1. One process runner.** Move the spawn into `ProcessUtil.swift`: stdout and stderr drained
+- [x] **1. One process runner.** Move the spawn into `ProcessUtil.swift`: stdout and stderr drained
       concurrently so a chatty child can never wedge the app, optional stdin, optional cwd, every
       call recorded in the ops log. Replace the eight bespoke spawns (FileIndex, GitBranches,
       WorktreeTasks, FleetDashboard ×2, BackgroundTaskStore, SymbolIndex ×2) and the 39

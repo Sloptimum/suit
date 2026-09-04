@@ -193,7 +193,7 @@ extension TerminalWindowController {
     // changed file (staged and unstaged both, like the full HEAD diff).
     func openGitDiff(root: String, file: String) {
         let producer = {
-            runProcess("/usr/bin/git", ["-C", root, "diff", "HEAD", "--", file]) ?? ""
+            runProcess(Git.executable, ["-C", root, "diff", "HEAD", "--", file]) ?? ""
         }
         let title = "diff: \((file as NSString).lastPathComponent)"
         reuseOrCreateTab(DiffPaneContent()) { content in
@@ -216,7 +216,7 @@ extension TerminalWindowController {
         let state = GitStatusMonitor.shared(forRoot: root).sync
         guard let upstream = state.upstream else { NSSound.beep(); return }
         let producer = {
-            runProcess("/usr/bin/git", ["-C", root] + GitBranchOps.upstreamDiffArguments(
+            runProcess(Git.executable, ["-C", root] + GitBranchOps.upstreamDiffArguments(
                 branch: branch, upstream: upstream
             )) ?? ""
         }
@@ -267,7 +267,7 @@ extension TerminalWindowController {
     // header; it handles the root commit (whole-file addition) too.
     func openCommitDiff(root: String, file: String, sha: String) {
         let producer = {
-            runProcess("/usr/bin/git", ["-C", root, "show", "--format=", sha, "--", file]) ?? ""
+            runProcess(Git.executable, ["-C", root, "show", "--format=", sha, "--", file]) ?? ""
         }
         let title = "diff: \((file as NSString).lastPathComponent) @ \(sha.prefix(8))"
         reuseOrCreateTab(DiffPaneContent()) { content in
@@ -280,7 +280,7 @@ extension TerminalWindowController {
     // window's diff tab like the per-file variant.
     func openCommitDiff(root: String, sha: String) {
         let producer = {
-            runProcess("/usr/bin/git", ["-C", root, "show", "--stat", "--patch", sha]) ?? ""
+            runProcess(Git.executable, ["-C", root, "show", "--stat", "--patch", sha]) ?? ""
         }
         let title = "commit \(sha.prefix(8))"
         reuseOrCreateTab(DiffPaneContent()) { content in
