@@ -43,7 +43,7 @@ current in this file. Tick a box in the same commit that finishes the step.
       `$HOME ?? NSHomeDirectory()` line copied into ~18 files. `CheckpointTimeline.openSnapshot`
       switches from `NSHomeDirectory()` to it, so a sandboxed `$HOME` sandboxes the file-history
       read too. Harness compile lists gain `SuitPaths.swift` where a store is compiled standalone.
-- [ ] **4. No git on the main thread.** `DiffPaneContent.loadGitDiff` / `refresh`,
+- [x] **4. No git on the main thread.** `DiffPaneContent.loadGitDiff` / `refresh`,
       `openCommitDiff` (both forms), the "since mark" composer in `+OpenTabs`, and
       `followWorktreeInTerminals` load with the placeholder-then-fill shape `openUpstreamDiff`
       already uses. The two `openSwitcherMenu`s read worktrees and branches from the repo shape
@@ -54,7 +54,9 @@ current in this file. Tick a box in the same commit that finishes the step.
       `FileTailer` (watch a path, hand back appended lines, restart on truncate or replace)
       replaces the copies in `TranscriptPane+Tail`, `CheckpointTimeline` and
       `BackgroundTaskPane`; a `DirectoryWatcher` replaces the two in `ClaudeSessions` and
-      `BackgroundTaskStore`; `processParentMap` lives once in `ProcessUtil`. Harness for the tailer.
+      `BackgroundTaskStore`; `processParentMap` lives once in `ProcessUtil`; the four
+      `git worktree list --porcelain` parsers (WorktreeSwitcher, Markers, FleetDashboard,
+      WorktreeTasks) become one. Harness for the tailer and the parsers.
 - [ ] **6. Typed defaults keys.** A `Defaults.Key` enum replaces the 35 hand-typed UserDefaults
       strings across 14 files, so a typo is a compile error. The load/save ledger in
       `AppDelegate+SettingsPersistence` keeps its shape but reads keys from the enum.

@@ -62,11 +62,15 @@ final class DiffPaneContent: NSObject, PaneContent {
     struct ReviewingPR { let number: Int; let root: String; let title: String }
     var reviewingPR: ReviewingPR?
 
-    // What a loader that fetches off the main thread is currently loading.
-    // The window reuses one diff tab, so a slow producer must check this is
-    // still its own load before applying — a second click that repointed the
-    // tab elsewhere must not be overwritten when the first fetch returns.
-    var pendingLoadTag: String?
+    // Bumped by every load or refresh, all of which run their producer off
+    // the main thread. The window reuses one diff tab, so a slow producer must
+    // check the generation is still its own before applying — a second click
+    // that repointed the tab elsewhere must not be overwritten when the first
+    // fetch returns.
+    var loadGeneration = 0
+    // The status field's prefix for the current load ("suit", "PR #12"), kept
+    // so a refresh rebuilds the field rather than appending to it.
+    var loadStatus = ""
 
     var view: NSView { containerView }
     var focusTarget: NSView { modePicker.selectedSegment == 0 ? unifiedText : leftText }

@@ -389,9 +389,9 @@ extension GitView {
     // checked-out one, never one another worktree holds — and only the safe
     // `-d`; the force variant is reached by escalation from the failure alert.
     private func addDeleteBranchItem(to menu: NSMenu, root: String, current: String?) {
-        let claimed = Set(WorktreeSwitcher.worktrees(root: root).compactMap { $0.branch })
+        let claimed = Set((monitor?.worktrees ?? []).compactMap { $0.branch })
         let deletable = GitBranchOps.deletableBranches(
-            all: WorktreeSwitcher.branches(root: root), current: current, checkedOutElsewhere: claimed
+            all: monitor?.branches ?? [], current: current, checkedOutElsewhere: claimed
         )
         let parent = menu.addItem(withTitle: "Delete Branch", action: nil, keyEquivalent: "")
         guard !deletable.isEmpty else {

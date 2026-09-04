@@ -192,12 +192,11 @@ extension TerminalWindowController {
     // The Git tab's file-scoped variant: the same diff tab, showing only one
     // changed file (staged and unstaged both, like the full HEAD diff).
     func openGitDiff(root: String, file: String) {
-        let producer = {
-            runProcess(Git.executable, ["-C", root, "diff", "HEAD", "--", file]) ?? ""
-        }
         let title = "diff: \((file as NSString).lastPathComponent)"
         reuseOrCreateTab(DiffPaneContent()) { content in
-            content.loadDiffText(producer(), title: title, root: root, reload: producer)
+            content.load(title: title, root: root) {
+                runProcess(Git.executable, ["-C", root, "diff", "HEAD", "--", file]) ?? ""
+            }
         }
     }
 
@@ -207,11 +206,6 @@ extension TerminalWindowController {
     // both ahead and behind reads as "here is my work" rather than as a mess of
     // reversed upstream commits. The upstream is re-read on every Refresh so a
     // fetch that lands afterwards shows up.
-    //
-    // Composed off the main thread, unlike the per-file diffs next door: a
-    // whole branch's divergence can be orders of magnitude larger than one
-    // file's, so this follows openPRDiff's placeholder-then-fill shape rather
-    // than blocking the window on `git diff`.
     func openUpstreamDiff(root: String, branch: String) {
         let state = GitStatusMonitor.shared(forRoot: root).sync
         guard let upstream = state.upstream else { NSSound.beep(); return }
@@ -221,43 +215,20 @@ extension TerminalWindowController {
             )) ?? ""
         }
         let title = GitBranchOps.upstreamDiffTitle(branch: branch, state: state)
-        let content = reuseOrCreateTab(DiffPaneContent()) { _ in }
-        content.reviewingPR = nil
-        content.pendingLoadTag = title
-        content.loadDiffText("Loading \(title)…", title: title, root: root, reload: producer)
-        DispatchQueue.global(qos: .userInitiated).async {
-            let diff = producer()
-            DispatchQueue.main.async {
-                // Only apply if the one diff tab is still loading this diff — a
-                // second click that repointed it elsewhere must win.
-                guard content.pendingLoadTag == title else { return }
-                content.pendingLoadTag = nil
-                content.loadDiffText(diff, title: title, root: root, reload: producer)
-            }
-        }
+        reuseOrCreateTab(DiffPaneContent()) { $0.load(title: title, root: root, producer: producer) }
     }
 
     // Open a PR's diff for review: `gh pr diff <n>` into the
     // window's diff tab, tagged with the PR number so Submit Review knows where
-    // to post. gh hits the network, so fetch off the main thread and show a
-    // placeholder meanwhile; Refresh re-fetches via the stored producer.
+    // to post. gh hits the network; Refresh re-fetches via the stored producer.
     func openPRDiff(_ pr: PRReviewItem) {
         guard let root = sidebar.gitView.gitRoot else { NSSound.beep(); return }
         let number = pr.number
-        let title = "PR #\(number)"
-        let producer = { GitHubCLI.prDiff(root: root, number: number) }
-
-        let content = reuseOrCreateTab(DiffPaneContent()) { _ in }
-        content.reviewingPR = DiffPaneContent.ReviewingPR(number: number, root: root, title: pr.title)
-        content.loadDiffText("Loading \(title)…", title: title, root: root, reload: producer)
-        DispatchQueue.global(qos: .userInitiated).async {
-            let diff = producer()
-            DispatchQueue.main.async {
-                // Only apply if the tab is still reviewing this PR (guards a
-                // quick second click that repointed the one diff tab).
-                guard content.reviewingPR?.number == number else { return }
-                content.loadDiffText(diff, title: title, root: root, reload: producer)
-            }
+        reuseOrCreateTab(DiffPaneContent()) { content in
+            content.load(
+                title: "PR #\(number)", root: root,
+                reviewingPR: DiffPaneContent.ReviewingPR(number: number, root: root, title: pr.title)
+            ) { GitHubCLI.prDiff(root: root, number: number) }
         }
     }
 
@@ -266,12 +237,11 @@ extension TerminalWindowController {
     // blame sha). `git show --format=` prints just the per-file diff, no commit
     // header; it handles the root commit (whole-file addition) too.
     func openCommitDiff(root: String, file: String, sha: String) {
-        let producer = {
-            runProcess(Git.executable, ["-C", root, "show", "--format=", sha, "--", file]) ?? ""
-        }
         let title = "diff: \((file as NSString).lastPathComponent) @ \(sha.prefix(8))"
         reuseOrCreateTab(DiffPaneContent()) { content in
-            content.loadDiffText(producer(), title: title, root: root, reload: producer)
+            content.load(title: title, root: root) {
+                runProcess(Git.executable, ["-C", root, "show", "--format=", sha, "--", file]) ?? ""
+            }
         }
     }
 
@@ -279,12 +249,11 @@ extension TerminalWindowController {
     // `git show <sha>` prints the commit's header + full diff; reuses the
     // window's diff tab like the per-file variant.
     func openCommitDiff(root: String, sha: String) {
-        let producer = {
-            runProcess(Git.executable, ["-C", root, "show", "--stat", "--patch", sha]) ?? ""
-        }
         let title = "commit \(sha.prefix(8))"
         reuseOrCreateTab(DiffPaneContent()) { content in
-            content.loadDiffText(producer(), title: title, root: root, reload: producer)
+            content.load(title: title, root: root) {
+                runProcess(Git.executable, ["-C", root, "show", "--stat", "--patch", sha]) ?? ""
+            }
         }
     }
 
@@ -329,24 +298,35 @@ extension TerminalWindowController {
         }
 
         // Which Claude session (by cwd match) is working in each worktree —
-        // resolved fresh on every compose so a Refresh re-attributes.
+        // resolved fresh on every compose so a Refresh re-attributes. The
+        // compose runs on a worker and the session list is main-queue state,
+        // so the lookup hops to main for the read (a sync hop is safe there:
+        // main is never waiting on the compose).
         let sessionForPath: (String) -> String? = { path in
-            let match = ClaudeSessionMonitor.shared.sessions.first {
-                guard let cwd = $0.cwd else { return false }
-                return cwd == path || cwd.hasPrefix(path + "/")
+            let lookup: () -> String? = {
+                let match = ClaudeSessionMonitor.shared.sessions.first {
+                    guard let cwd = $0.cwd else { return false }
+                    return cwd == path || cwd.hasPrefix(path + "/")
+                }
+                guard let match else { return nil }
+                return "\(match.displayName) • \(match.state.label)"
             }
-            guard let match else { return nil }
-            return "\(match.displayName) • \(match.state.label)"
+            return Thread.isMainThread ? lookup() : DispatchQueue.main.sync(execute: lookup)
         }
 
-        let producer: () -> String = {
-            MarkerCatchUp.compose(mainRoot: mainRoot, marker: marker, sessionForPath: sessionForPath).diffText
-        }
-        let composed = MarkerCatchUp.compose(mainRoot: mainRoot, marker: marker, sessionForPath: sessionForPath)
-        let title = "Since \(MarkerCatchUp.shortTime(marker.at)) · \(MarkerCatchUp.fileCount(composed.totalFiles)) +\(composed.totalInsertions) \u{2212}\(composed.totalDeletions)"
-
-        reuseOrCreateTab(DiffPaneContent()) { content in
-            content.loadDiffText(composed.diffText, title: title, root: mainRoot, reload: producer)
+        // Composing runs git three times per worktree, so it happens on a
+        // worker; the title carries totals only the composed set knows, hence
+        // the two-step load. A Refresh keeps the title it has.
+        let compose = { MarkerCatchUp.compose(mainRoot: mainRoot, marker: marker, sessionForPath: sessionForPath) }
+        let since = "Since \(MarkerCatchUp.shortTime(marker.at))"
+        let content = reuseOrCreateTab(DiffPaneContent()) { _ in }
+        let generation = content.beginLoad(title: since, root: mainRoot) { compose().diffText }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let composed = compose()
+            let title = "\(since) · \(MarkerCatchUp.fileCount(composed.totalFiles)) +\(composed.totalInsertions) \u{2212}\(composed.totalDeletions)"
+            DispatchQueue.main.async {
+                content.finishLoad(generation, diff: composed.diffText, title: title)
+            }
         }
     }
 

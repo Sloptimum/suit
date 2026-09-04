@@ -210,8 +210,21 @@ extension TerminalWindowController {
     func followWorktreeInTerminals(newRoot: String) {
         // Every worktree of this repo, including the main checkout — the set a
         // shell must currently sit inside to be considered "following" the repo.
-        let siblings = WorktreeSwitcher.worktrees(root: newRoot).map { $0.path }
-        guard !siblings.isEmpty else { return }
+        // Read on a worker: the new root's status monitor may not have finished
+        // its first pass yet, and a switch is rare enough that one spawn beats
+        // reasoning about which monitor already knows the family.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let siblings = WorktreeSwitcher.parseWorktrees(
+                runProcess(Git.executable, ["-C", newRoot, "worktree", "list", "--porcelain"]) ?? ""
+            ).map(\.path)
+            guard !siblings.isEmpty else { return }
+            DispatchQueue.main.async {
+                self?.followWorktreeInTerminals(newRoot: newRoot, siblings: siblings)
+            }
+        }
+    }
+
+    private func followWorktreeInTerminals(newRoot: String, siblings: [String]) {
         for pane in panes {
             guard let terminal = pane.terminalContent else { continue }
             // SSH shells run on a remote host — a local worktree path is
