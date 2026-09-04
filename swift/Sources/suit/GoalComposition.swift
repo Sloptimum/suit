@@ -2,7 +2,7 @@ import Foundation
 
 // "Set as Goal" text composition, separated from AppDelegate
 // so it is pure and standalone-compilable — the FeedbackRouting convention,
-// verified by scripts/goal-harness.sh without pulling
+// verified by scripts/goal-composition-test.sh without pulling
 // in AppKit. `composeGoalText` builds the `/goal `-prefixed payload sent into a
 // chosen Claude session; `bracketedPaste` mirrors SessionControl.send's
 // framing so a multi-line selection stays one input-box unit.

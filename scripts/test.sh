@@ -59,6 +59,13 @@ HARNESSES=(
   "first-run-guide|scripts/first-run-guide-test.sh|fast"
   "file-tailer|scripts/file-tailer-test.sh|fast"
   "worktree-switcher|scripts/worktree-switcher-test.sh|fast"
+  "transcript-parsing|scripts/transcript-parsing-test.sh|fast"
+  "goal-composition|scripts/goal-composition-test.sh|fast"
+  "slash-commands|scripts/slash-commands-test.sh|fast"
+  "fleet-model|scripts/fleet-model-test.sh|fast"
+  "claude-sessions|scripts/claude-sessions-test.sh|fast"
+  "git-output-parsing|scripts/git-output-parsing-test.sh|fast"
+  "worktree-tasks|scripts/worktree-tasks-test.sh|fast"
   "source-control-gate|scripts/source-control-gate-test.sh|slow"
 )
 

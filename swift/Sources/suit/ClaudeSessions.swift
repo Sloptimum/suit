@@ -131,36 +131,17 @@ final class ClaudeSessionMonitor {
 
         for name in (try? fm.contentsOfDirectory(atPath: sessionsDirectory)) ?? [] where name.hasSuffix(".json") {
             let path = sessionsDirectory + "/" + name
-            guard let data = fm.contents(atPath: path),
-                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let id = object["session_id"] as? String else { continue }
+            guard let data = fm.contents(atPath: path), let session = Self.parseSession(data) else { continue }
 
-            let updatedAt = Date(timeIntervalSince1970: (object["updated_at"] as? Double) ?? 0)
-            if now.timeIntervalSince(updatedAt) > Self.pruneAge {
+            let age = now.timeIntervalSince(session.updatedAt)
+            if age > Self.pruneAge {
                 try? fm.removeItem(atPath: path)
                 continue
             }
-
-            let state = (object["state"] as? String).flatMap(ClaudeSessionState.init(rawValue:)) ?? .working
-            let age = now.timeIntervalSince(updatedAt)
-            if age > Self.maxAge || (state == .done && age > Self.maxDoneAge) {
+            if age > Self.maxAge || (session.state == .done && age > Self.maxDoneAge) {
                 continue
             }
-
-            loaded.append(ClaudeSession(
-                id: id,
-                state: state,
-                cwd: object["cwd"] as? String,
-                summary: object["summary"] as? String,
-                model: object["model"] as? String,
-                pid: (object["pid"] as? Int).map(pid_t.init),
-                updatedAt: updatedAt,
-                transcriptPath: object["transcript_path"] as? String,
-                sessionName: object["session_name"] as? String,
-                contextPct: (object["context_pct"] as? NSNumber)?.doubleValue,
-                costUSD: (object["cost_usd"] as? NSNumber)?.doubleValue,
-                permissionMode: ClaudeMode.fromRawMode(object["permission_mode"] as? String)
-            ))
+            loaded.append(session)
         }
 
         sessions = loaded.sorted {
@@ -168,6 +149,29 @@ final class ClaudeSessionMonitor {
         }
         usage = Self.readUsage(path: statusFile)
         NotificationCenter.default.post(name: Self.didUpdate, object: self)
+    }
+
+    // One session file (the JSON scripts/claude/suit-session-state.sh and the
+    // statusline merge) as a session. nil without a session_id; an unknown
+    // state reads as working, since a hook that wrote anything is a session
+    // doing something. Pure, so the harness feeds it JSON directly.
+    static func parseSession(_ data: Data) -> ClaudeSession? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let id = object["session_id"] as? String else { return nil }
+        return ClaudeSession(
+            id: id,
+            state: (object["state"] as? String).flatMap(ClaudeSessionState.init(rawValue:)) ?? .working,
+            cwd: object["cwd"] as? String,
+            summary: object["summary"] as? String,
+            model: object["model"] as? String,
+            pid: (object["pid"] as? Int).map(pid_t.init),
+            updatedAt: Date(timeIntervalSince1970: (object["updated_at"] as? Double) ?? 0),
+            transcriptPath: object["transcript_path"] as? String,
+            sessionName: object["session_name"] as? String,
+            contextPct: (object["context_pct"] as? NSNumber)?.doubleValue,
+            costUSD: (object["cost_usd"] as? NSNumber)?.doubleValue,
+            permissionMode: ClaudeMode.fromRawMode(object["permission_mode"] as? String)
+        )
     }
 
     private static func readUsage(path: String) -> ClaudeUsage? {
@@ -186,8 +190,13 @@ final class ClaudeSessionMonitor {
     }
 
     private static func parseUsage(path: String) -> ClaudeUsage? {
-        guard let data = FileManager.default.contents(atPath: path),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        FileManager.default.contents(atPath: path).flatMap(parseUsage(data:))
+    }
+
+    // The statusline's claude-status.json (Claude Code's own JSON, mirrored
+    // verbatim under rate_limits). Pure, so the harness feeds it directly.
+    static func parseUsage(data: Data) -> ClaudeUsage? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         let limits = object["rate_limits"] as? [String: Any]
         func pct(_ key: String) -> Double? {
             (limits?[key] as? [String: Any])?["used_percentage"] as? Double

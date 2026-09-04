@@ -60,7 +60,7 @@ current in this file. Tick a box in the same commit that finishes the step.
 - [x] **6. Typed defaults keys.** A `Defaults.Key` enum replaces the 35 hand-typed UserDefaults
       strings across 14 files, so a typo is a compile error. The load/save ledger in
       `AppDelegate+SettingsPersistence` keeps its shape but reads keys from the enum.
-- [ ] **7. Harnesses for the uncovered cores.** `TranscriptParsing`, `SlashCommands`,
+- [x] **7. Harnesses for the uncovered cores.** `TranscriptParsing`, `SlashCommands`,
       `GoalComposition`, `FleetModel` get harnesses directly; the parse functions in
       `GitBranches`, `WorktreeTasks` and `ClaudeSessions` move to Foundation-only cores first,
       then get theirs. Each is added to `HARNESSES` in `scripts/test.sh`.
