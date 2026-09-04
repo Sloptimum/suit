@@ -25,8 +25,7 @@ final class BackgroundTaskStore {
     private(set) var tasks: [BackgroundTask] = []
 
     private let probeQueue = DispatchQueue(label: "dev.kosych.suit.bgtasks")
-    private var directorySource: DispatchSourceFileSystemObject?
-    private var reloadDebounce: DispatchWorkItem?
+    private var watcher: DirectoryWatcher?
     // Cache of the last live port probe per pid, so a settled server isn't
     // re-lsof'd on every 3 s refresh (probing is a subprocess spawn).
     private var portCache: [Int32: Int?] = [:]
@@ -38,20 +37,7 @@ final class BackgroundTaskStore {
     }
 
     private func watch() {
-        let fd = open(Self.tasksDirectory, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: .write, queue: .main)
-        source.setEventHandler { [weak self] in self?.scheduleReload() }
-        source.setCancelHandler { close(fd) }
-        source.resume()
-        directorySource = source
-    }
-
-    private func scheduleReload() {
-        reloadDebounce?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.reload() }
-        reloadDebounce = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+        watcher = DirectoryWatcher(paths: [Self.tasksDirectory]) { [weak self] in self?.reload() }
     }
 
     // Re-reads every record and reconciles it against live process state.
@@ -117,7 +103,7 @@ final class BackgroundTaskStore {
     // against a fresh sysctl parent map each call (process trees move).
     func tasks(underShell shellPid: Int32) -> [BackgroundTask] {
         guard shellPid > 0 else { return tasks }
-        let parentMap = Self.processParentMap()
+        let parentMap = processParentMap()
         return tasks.filter { task in
             // The task's own pid subtree first (the backgrounded job is a
             // descendant of the pane's shell while it lives); the record's
@@ -157,27 +143,6 @@ final class BackgroundTaskStore {
         return errno == EPERM
     }
 
-    // One sysctl read of the whole process table → child pid → parent pid,
-    // mirroring ClaudeSessionAssigner.processParentMap.
-    static func processParentMap() -> [Int32: Int32] {
-        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
-        var size = 0
-        guard sysctl(&mib, 4, nil, &size, nil, 0) == 0, size > 0 else { return [:] }
-        size += size / 8
-        var buffer = [UInt8](repeating: 0, count: size)
-        guard sysctl(&mib, 4, &buffer, &size, nil, 0) == 0 else { return [:] }
-        let count = size / MemoryLayout<kinfo_proc>.stride
-        var map: [Int32: Int32] = [:]
-        map.reserveCapacity(count)
-        buffer.withUnsafeBytes { raw in
-            let procs = raw.bindMemory(to: kinfo_proc.self)
-            for i in 0..<count {
-                let proc = procs[i]
-                map[proc.kp_proc.p_pid] = proc.kp_eproc.e_ppid
-            }
-        }
-        return map
-    }
 
     // The listening TCP port a pid is bound to, via lsof — parsed by the pure
     // BackgroundTasks.parseListeningPort. nil when lsof is absent or the process

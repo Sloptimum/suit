@@ -105,47 +105,6 @@ do {
     check("descendant: missing parent chain stops", !BackgroundTasks.isDescendant(4242, of: 900, in: parents))
 }
 
-// MARK: - Incremental log tail (the "tails new log lines" behavior)
-
-do {
-    let dir = NSTemporaryDirectory() + "suit-bgtail-\(ProcessInfo.processInfo.processIdentifier)"
-    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-    let path = dir + "/log.txt"
-    try? "line1\nline2\n".write(toFile: path, atomically: true, encoding: .utf8)
-
-    guard let first = LogTail.readAppended(path: path, from: 0) else {
-        check("tail: initial read", false); exit(1)
-    }
-    check("tail: reads the first two lines", first.lines == ["line1", "line2"])
-
-    // Append more, including a trailing partial line (no newline yet).
-    if let handle = FileHandle(forWritingAtPath: path) {
-        handle.seekToEndOfFile()
-        handle.write("line3\npartial".data(using: .utf8)!)
-        try? handle.close()
-    }
-    guard let second = LogTail.readAppended(path: path, from: first.newOffset) else {
-        check("tail: append read", false); exit(1)
-    }
-    check("tail: reads only the new complete line", second.lines == ["line3"])
-    check("tail: holds back the partial line", second.newOffset < (try! FileManager.default.attributesOfItem(atPath: path)[.size] as! UInt64))
-
-    // Finish the partial line; the next read completes it.
-    if let handle = FileHandle(forWritingAtPath: path) {
-        handle.seekToEndOfFile()
-        handle.write("-done\n".data(using: .utf8)!)
-        try? handle.close()
-    }
-    let third = LogTail.readAppended(path: path, from: second.newOffset)
-    check("tail: completes the held-back line", third?.lines == ["partial-done"])
-
-    // Truncation in place re-reads from the start.
-    try? "fresh\n".write(toFile: path, atomically: true, encoding: .utf8)
-    let after = LogTail.readAppended(path: path, from: 9999)
-    check("tail: truncation resets to start", after?.lines == ["fresh"])
-
-    try? FileManager.default.removeItem(atPath: dir)
-}
 
 // MARK: - Integration: real records written by scripts/suit-bg.sh
 

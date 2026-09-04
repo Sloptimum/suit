@@ -126,10 +126,8 @@ final class CheckpointTimelinePaneContent: NSObject, PaneContent, NSTextViewDele
     private var checkpoints: [Checkpoint] = []
     private var lastPrompt: String = ""
 
-    // Live-tail state, identical in shape to the transcript pane's.
-    private var readOffset: UInt64 = 0
-    private var remainder = Data()
-    private var watchSource: DispatchSourceFileSystemObject?
+    // The live tail of the transcript file; nil while no file is loaded.
+    private var tailer: FileTailer?
 
     private var font: NSFont = .monospacedSystemFont(ofSize: 12, weight: .regular)
     private var baseTextColor: NSColor = .textColor
@@ -180,8 +178,6 @@ final class CheckpointTimelinePaneContent: NSObject, PaneContent, NSTextViewDele
         stopWatching()
         checkpoints = []
         lastPrompt = ""
-        readOffset = 0
-        remainder = Data()
 
         guard let path = session.transcriptPath, FileManager.default.fileExists(atPath: path) else {
             transcriptPath = nil
@@ -191,71 +187,40 @@ final class CheckpointTimelinePaneContent: NSObject, PaneContent, NSTextViewDele
             return
         }
         transcriptPath = path
-        readAppended()
         watch(path: path)
         render()
     }
 
     private func watch(path: String) {
-        let fd = open(path, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd, eventMask: [.write, .extend, .delete, .rename], queue: .main
-        )
-        source.setEventHandler { [weak self] in
-            guard let self else { return }
-            if source.data.contains(.delete) || source.data.contains(.rename) {
-                self.stopWatching()
+        let tailer = FileTailer(
+            path: path,
+            onReset: { [weak self] in
+                // Truncated or recreated (a resumed session): start over.
+                guard let self else { return }
                 self.checkpoints = []
                 self.lastPrompt = ""
-                self.readOffset = 0
-                self.remainder = Data()
-                if FileManager.default.fileExists(atPath: path) {
-                    self.readAppended()
-                    self.watch(path: path)
-                }
                 self.render()
-                return
+            },
+            onLines: { [weak self] lines in
+                guard let self else { return }
+                self.consume(lines: lines)
+                self.render()
             }
-            self.readAppended()
-            self.render()
-        }
-        source.setCancelHandler { close(fd) }
-        source.resume()
-        watchSource = source
+        )
+        self.tailer = tailer
+        tailer.start()
     }
 
     private func stopWatching() {
-        watchSource?.cancel()
-        watchSource = nil
+        tailer?.stop()
+        tailer = nil
     }
 
-    // Reads everything past readOffset and folds complete lines into the
-    // checkpoint list; a write can land mid-line, so the tail fragment waits in
-    // `remainder`. Unlike the transcript pane we always re-render (the graph's
-    // node numbering depends on the whole list), which is cheap at this scale.
-    private func readAppended() {
-        guard let transcriptPath, let handle = FileHandle(forReadingAtPath: transcriptPath) else { return }
-        defer { try? handle.close() }
-
-        let size = (try? handle.seekToEnd()) ?? 0
-        if size < readOffset {
-            checkpoints = []
-            lastPrompt = ""
-            readOffset = 0
-            remainder = Data()
-        }
-        guard size > readOffset else { return }
-        try? handle.seek(toOffset: readOffset)
-        guard let data = try? handle.readToEnd() else { return }
-        readOffset = size
-
-        var buffer = remainder
-        buffer.append(data)
-        while let newline = buffer.firstIndex(of: UInt8(ascii: "\n")) {
-            let lineData = buffer[buffer.startIndex..<newline]
-            buffer = buffer[buffer.index(after: newline)...]
-            guard let line = String(data: lineData, encoding: .utf8) else { continue }
+    // Folds complete lines into the checkpoint list. Unlike the transcript
+    // pane the caller always re-renders (the graph's node numbering depends on
+    // the whole list), which is cheap at this scale.
+    private func consume(lines: [String]) {
+        for line in lines {
             switch parseCheckpointLine(line) {
             case .prompt(let text):
                 lastPrompt = text
@@ -265,7 +230,6 @@ final class CheckpointTimelinePaneContent: NSObject, PaneContent, NSTextViewDele
                 break
             }
         }
-        remainder = Data(buffer)
         if checkpoints.count > Self.maxCheckpoints {
             checkpoints.removeFirst(checkpoints.count - Self.maxCheckpoints)
         }

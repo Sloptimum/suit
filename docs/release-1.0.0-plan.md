@@ -50,7 +50,7 @@ current in this file. Tick a box in the same commit that finishes the step.
       `GitStatusMonitor` already caches instead of spawning git twice per click.
 
 ### Phase 2 — duplication
-- [ ] **5. One tail reader, one directory watcher, one process-table walker.** A Foundation-only
+- [x] **5. One tail reader, one directory watcher, one process-table walker.** A Foundation-only
       `FileTailer` (watch a path, hand back appended lines, restart on truncate or replace)
       replaces the copies in `TranscriptPane+Tail`, `CheckpointTimeline` and
       `BackgroundTaskPane`; a `DirectoryWatcher` replaces the two in `ClaudeSessions` and

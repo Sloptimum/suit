@@ -539,30 +539,10 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
         return []
     }
 
-    // Parses `git worktree list --porcelain` into (path, branch?) entries. The
-    // porcelain form is blocks of `worktree <path>` / optional `branch
-    // refs/heads/<name>` / `detached`, separated by blank lines.
+    // `git worktree list --porcelain` as (path, branch?) entries.
     private static func listWorktrees(cwd: String) -> [SubagentTreeWorktree] {
         guard let text = runProcess(Git.executable, ["-C", cwd, "worktree", "list", "--porcelain"]) else { return [] }
-
-        var result: [SubagentTreeWorktree] = []
-        var path: String?
-        var branch: String?
-        func flush() {
-            if let path { result.append(SubagentTreeWorktree(path: path, branch: branch)) }
-            path = nil
-            branch = nil
-        }
-        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
-            if line.hasPrefix("worktree ") {
-                flush()
-                path = String(line.dropFirst("worktree ".count))
-            } else if line.hasPrefix("branch refs/heads/") {
-                branch = String(line.dropFirst("branch refs/heads/".count))
-            }
-        }
-        flush()
-        return result
+        return WorktreeSwitcher.parseWorktrees(text).map { SubagentTreeWorktree(path: $0.path, branch: $0.branch) }
     }
 
     // MARK: - Layout mode

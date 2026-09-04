@@ -100,9 +100,7 @@ final class ClaudeSessionMonitor {
     private let sessionsDirectory = SuitPaths.directory + "/sessions"
     private let statusFile = SuitPaths.directory + "/claude-status.json"
 
-    private var directorySource: DispatchSourceFileSystemObject?
-    private var parentSource: DispatchSourceFileSystemObject?
-    private var reloadDebounce: DispatchWorkItem?
+    private var watcher: DirectoryWatcher?
 
     private init() {
         try? FileManager.default.createDirectory(atPath: sessionsDirectory, withIntermediateDirectories: true)
@@ -114,33 +112,13 @@ final class ClaudeSessionMonitor {
         }
     }
 
-    // Directory-level vnode watchers: session files are small and rewritten
-    // atomically (mv), so a .write event on the directory is the reliable signal.
+    // The sessions directory plus ~/.suit itself, where claude-status.json
+    // lives — one debounce for the pair, since the statusline script rewrites
+    // both in the same run (DirectoryWatcher).
     private func watch() {
-        directorySource = watchDirectory(sessionsDirectory)
-        // claude-status.json lives in ~/.suit itself.
-        parentSource = watchDirectory((statusFile as NSString).deletingLastPathComponent)
-    }
-
-    private func watchDirectory(_ path: String) -> DispatchSourceFileSystemObject? {
-        let fd = open(path, O_EVTONLY)
-        guard fd >= 0 else { return nil }
-        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: .write, queue: .main)
-        source.setEventHandler { [weak self] in
-            self?.scheduleReload()
-        }
-        source.setCancelHandler {
-            close(fd)
-        }
-        source.resume()
-        return source
-    }
-
-    private func scheduleReload() {
-        reloadDebounce?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.reload() }
-        reloadDebounce = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+        watcher = DirectoryWatcher(
+            paths: [sessionsDirectory, (statusFile as NSString).deletingLastPathComponent]
+        ) { [weak self] in self?.reload() }
     }
 
     // Re-reads every session file and the global usage snapshot. Called on
@@ -265,7 +243,7 @@ final class ClaudeSessionAssigner {
 
     init(sessions: [ClaudeSession]) {
         self.sessions = sessions
-        self.parentMap = sessions.contains(where: { $0.pid != nil }) ? Self.processParentMap() : [:]
+        self.parentMap = sessions.contains(where: { $0.pid != nil }) ? processParentMap() : [:]
     }
 
     func session(forShellPid shellPid: pid_t, cwd: String?) -> ClaudeSession? {
@@ -298,26 +276,4 @@ final class ClaudeSessionAssigner {
         return false
     }
 
-    // One sysctl read of the whole process table → child pid → parent pid.
-    private static func processParentMap() -> [pid_t: pid_t] {
-        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
-        var size = 0
-        guard sysctl(&mib, 4, nil, &size, nil, 0) == 0, size > 0 else { return [:] }
-        // Headroom for processes spawned between the two calls.
-        size += size / 8
-        var buffer = [UInt8](repeating: 0, count: size)
-        guard sysctl(&mib, 4, &buffer, &size, nil, 0) == 0 else { return [:] }
-
-        let count = size / MemoryLayout<kinfo_proc>.stride
-        var map: [pid_t: pid_t] = [:]
-        map.reserveCapacity(count)
-        buffer.withUnsafeBytes { raw in
-            let procs = raw.bindMemory(to: kinfo_proc.self)
-            for i in 0..<count {
-                let proc = procs[i]
-                map[proc.kp_proc.p_pid] = proc.kp_eproc.e_ppid
-            }
-        }
-        return map
-    }
 }

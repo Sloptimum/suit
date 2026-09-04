@@ -1,81 +1,40 @@
 import Cocoa
 
-// Live-tail / file-watching for the transcript pane: a DispatchSource watches
-// the JSONL file and reads whatever was appended, parsing complete lines into
-// entries (a write can land mid-line; the tail fragment waits in `remainder`).
+// Live-tail / file-watching for the transcript pane: a FileTailer follows the
+// JSONL file and hands over each batch of complete lines, which are parsed
+// into entries and appended to the view.
 
 extension TranscriptPaneContent {
     func watch(path: String) {
-        let fd = open(path, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd, eventMask: [.write, .extend, .delete, .rename], queue: .main
+        let tailer = FileTailer(
+            path: path,
+            onReset: { [weak self] in
+                // Truncated or recreated (a resumed session): start over.
+                guard let self else { return }
+                self.resetEntries()
+                self.render()
+            },
+            onLines: { [weak self] lines in self?.consume(lines: lines) }
         )
-        source.setEventHandler { [weak self] in
-            guard let self else { return }
-            if source.data.contains(.delete) || source.data.contains(.rename) {
-                // Recreated file (e.g. session resumed): start over if it's back.
-                self.stopWatching()
-                self.entries = []
-                self.entrySourceLines = []
-                self.lineCounter = 0
-                self.readOffset = 0
-                self.remainder = Data()
-                if FileManager.default.fileExists(atPath: path) {
-                    self.readAppended()
-                    self.watch(path: path)
-                    self.render()
-                }
-                return
-            }
-            self.readAppended()
-        }
-        source.setCancelHandler { close(fd) }
-        source.resume()
-        watchSource = source
+        self.tailer = tailer
+        tailer.start()
     }
 
     func stopWatching() {
-        watchSource?.cancel()
-        watchSource = nil
+        tailer?.stop()
+        tailer = nil
     }
 
-    // Reads everything past readOffset, parses complete lines (a write can land
-    // mid-line; the tail fragment waits in `remainder` for the next event), and
-    // appends the new entries.
-    func readAppended() {
-        guard let transcriptPath, let handle = FileHandle(forReadingAtPath: transcriptPath) else { return }
-        defer { try? handle.close() }
-
-        let size = (try? handle.seekToEnd()) ?? 0
-        if size < readOffset {
-            // Truncated in place: start over.
-            entries = []
-            entrySourceLines = []
-            lineCounter = 0
-            readOffset = 0
-            remainder = Data()
-        }
-        guard size > readOffset else { return }
-        try? handle.seek(toOffset: readOffset)
-        guard let data = try? handle.readToEnd() else { return }
-        readOffset = size
-
-        var buffer = remainder
-        buffer.append(data)
+    // Parses a batch of complete lines and appends the new entries.
+    func consume(lines: [String]) {
         var newEntries: [TranscriptEntry] = []
         var newSourceLines: [Int] = []
-        while let newline = buffer.firstIndex(of: UInt8(ascii: "\n")) {
-            let lineData = buffer[buffer.startIndex..<newline]
-            buffer = buffer[buffer.index(after: newline)...]
+        for line in lines {
             lineCounter += 1
-            if let line = String(data: lineData, encoding: .utf8) {
-                let parsed = parseTranscriptLine(line)
-                newEntries.append(contentsOf: parsed)
-                newSourceLines.append(contentsOf: Array(repeating: lineCounter, count: parsed.count))
-            }
+            let parsed = parseTranscriptLine(line)
+            newEntries.append(contentsOf: parsed)
+            newSourceLines.append(contentsOf: Array(repeating: lineCounter, count: parsed.count))
         }
-        remainder = Data(buffer)
 
         guard !newEntries.isEmpty else { return }
         entries.append(contentsOf: newEntries)

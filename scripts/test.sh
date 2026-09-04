@@ -57,6 +57,8 @@ HARNESSES=(
   "untitled-documents|scripts/untitled-documents-test.sh|fast"
   "bundled-fonts|scripts/bundled-fonts-test.sh|fast"
   "first-run-guide|scripts/first-run-guide-test.sh|fast"
+  "file-tailer|scripts/file-tailer-test.sh|fast"
+  "worktree-switcher|scripts/worktree-switcher-test.sh|fast"
   "source-control-gate|scripts/source-control-gate-test.sh|slow"
 )
 

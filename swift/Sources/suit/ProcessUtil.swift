@@ -223,3 +223,31 @@ private func spawn(
         stderr: String(decoding: stderrData, as: UTF8.self)
     )
 }
+
+// MARK: - The process table
+
+// One sysctl read of the whole process table → child pid → parent pid. The
+// session assigner walks it to find which pane's shell a claude process sits
+// under, and the task monitor to scope a pane's background jobs; each reads it
+// once per pass rather than once per pane.
+func processParentMap() -> [pid_t: pid_t] {
+    var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
+    var size = 0
+    guard sysctl(&mib, 4, nil, &size, nil, 0) == 0, size > 0 else { return [:] }
+    // Headroom for processes spawned between the two calls.
+    size += size / 8
+    var buffer = [UInt8](repeating: 0, count: size)
+    guard sysctl(&mib, 4, &buffer, &size, nil, 0) == 0 else { return [:] }
+
+    let count = size / MemoryLayout<kinfo_proc>.stride
+    var map: [pid_t: pid_t] = [:]
+    map.reserveCapacity(count)
+    buffer.withUnsafeBytes { raw in
+        let procs = raw.bindMemory(to: kinfo_proc.self)
+        for i in 0..<count {
+            let proc = procs[i]
+            map[proc.kp_proc.p_pid] = proc.kp_eproc.e_ppid
+        }
+    }
+    return map
+}

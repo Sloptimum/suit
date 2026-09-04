@@ -53,10 +53,7 @@ enum WorktreeTasks {
         guard let output = runProcess(Git.executable, ["-C", path, "worktree", "list", "--porcelain"]) else {
             return nil
         }
-        for line in output.split(separator: "\n") where line.hasPrefix("worktree ") {
-            return String(line.dropFirst("worktree ".count))
-        }
-        return nil
+        return WorktreeSwitcher.parseWorktrees(output).first?.path
     }
 
     static func currentBranch(_ path: String) -> String? {
