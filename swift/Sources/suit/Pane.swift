@@ -129,12 +129,14 @@ final class Pane: NSObject {
     }
 
     // Shared with Pane+Screensaver.
+    // Presets the user picks by name, so they are fixed values like the hued
+    // grounds above — spelled the same way, through Theme.rgb.
     static let screensaverFontColors: [(String, NSColor)] = [
-        ("White", NSColor.white),
-        ("Cyan", NSColor(calibratedRed: 0.35, green: 0.75, blue: 0.95, alpha: 1)),
-        ("Matrix Green", NSColor(calibratedRed: 0.2, green: 1.0, blue: 0.4, alpha: 1)),
-        ("Amber", NSColor(calibratedRed: 1.0, green: 0.75, blue: 0.2, alpha: 1)),
-        ("Hot Pink", NSColor(calibratedRed: 1.0, green: 0.4, blue: 0.7, alpha: 1)),
+        ("White", Theme.rgb(0xFFFFFF)),
+        ("Cyan", Theme.rgb(0x59BFF2)),
+        ("Matrix Green", Theme.rgb(0x33FF66)),
+        ("Amber", Theme.rgb(0xFFBF33)),
+        ("Hot Pink", Theme.rgb(0xFF66B3)),
     ]
     static let screensaverFontSizes: [(String, CGFloat)] = [
         ("Small", 10), ("Medium", 13), ("Large", 16), ("Extra Large", 20),

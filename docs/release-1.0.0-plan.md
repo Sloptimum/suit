@@ -66,7 +66,7 @@ current in this file. Tick a box in the same commit that finishes the step.
       then get theirs. Each is added to `HARNESSES` in `scripts/test.sh`.
 
 ### Phase 3 — hygiene
-- [ ] **8. Theme-token colors.** `ImagePane`'s checkerboard derives from theme tokens;
+- [x] **8. Theme-token colors.** `ImagePane`'s checkerboard derives from theme tokens;
       `Pane.screensaverFontColors` uses `Theme.rgb` like the backgrounds beside it. No new
       tokens (that would change the theme file format).
 - [ ] **9. Docs.** File counts in `CLAUDE.md`, `build.sh` and `docs/development.md` corrected;

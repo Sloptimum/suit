@@ -16,10 +16,13 @@ final class ImageCanvasView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         // Two-tone checkerboard, the Preview.app convention for transparency.
+        // Two adjacent chrome surfaces rather than fixed grays: the board reads
+        // as a neutral in every palette, and a light theme no longer gets a
+        // dark slab behind its images.
         let tile: CGFloat = 9
-        NSColor(white: 0.32, alpha: 1).setFill()
+        Theme.hover.setFill()
         bounds.fill()
-        NSColor(white: 0.24, alpha: 1).setFill()
+        Theme.raised.setFill()
         var y = (bounds.minY / tile).rounded(.down) * tile
         while y < bounds.maxY {
             let rowEven = (Int((y / tile).rounded()) % 2) == 0
