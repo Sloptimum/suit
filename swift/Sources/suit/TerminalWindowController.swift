@@ -89,9 +89,49 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
 
     init(appDelegate: AppDelegate, startDirectory: String, restoring saved: SavedWindow? = nil, adopting adopted: Tab? = nil) {
         self.appDelegate = appDelegate
-
         let frame = NSRect(x: 0, y: 0, width: 900, height: 600)
-        window = NSWindow(
+        window = Self.makeWindow(frame: frame)
+
+        super.init()
+
+        store.delegate = self
+        window.delegate = self
+        observeFirstResponder()
+
+        rootContainer = WindowRootView(frame: frame)
+        paneTreeHost = RootContainerView(frame: frame)
+        // The well margin: cards float on the darker window ground rather
+        // than tiling it edge to edge (see RootContainerView.contentInset).
+        paneTreeHost.contentInset = Theme.Metrics.wellInset
+
+        let restored = restorePaneTree(saved: saved, adopted: adopted)
+        let fallbackPane = installPaneTree(restoredRoot: restored.root)
+
+        makeSidebar(frame: frame, startDirectory: startDirectory)
+        wireSidebar()
+        restorePinnedSidebarRoot()
+        assembleRootView(frame: frame)
+
+        if let fallbackPane {
+            window.title = fallbackPane.displayTitle
+            window.makeFirstResponder(fallbackPane.focusTarget)
+            fallbackPane.terminalContent?.start(in: startDirectory)
+        } else {
+            finishRestore(saved: saved, restoredByIndex: restored.byIndex)
+        }
+
+        adoptStrandedTabs()
+        refreshTabSurfaces()
+        startObservingTheme()
+    }
+
+    // MARK: - Construction
+    //
+    // The initializer above is the order of operations; each step below is
+    // one of them, named. They are private and called once, from there.
+
+    private static func makeWindow(frame: NSRect) -> NSWindow {
+        let window = NSWindow(
             contentRect: frame,
             // A regular title bar owns window dragging (and shows the active
             // tab's title); the strip is its own row below it, so a tab drag
@@ -108,12 +148,10 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         window.isReleasedWhenClosed = false
         // One tab system: the strip. Never let AppKit graft its own on top.
         window.tabbingMode = .disallowed
+        return window
+    }
 
-        super.init()
-
-        store.delegate = self
-        window.delegate = self
-
+    private func observeFirstResponder() {
         // Focus is derived, never pushed. AppKit doesn't call
         // resignFirstResponder on a view that's simply removed from the
         // hierarchy (tree surgery, Pane.display content swaps), so any scheme
@@ -124,14 +162,11 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         firstResponderObservation = window.observe(\.firstResponder) { [weak self] _, _ in
             self?.firstResponderDidChange()
         }
+    }
 
-        rootContainer = WindowRootView(frame: frame)
-
-        paneTreeHost = RootContainerView(frame: frame)
-        // The well margin: cards float on the darker window ground rather
-        // than tiling it edge to edge (see RootContainerView.contentInset).
-        paneTreeHost.contentInset = Theme.Metrics.wellInset
-
+    // Everything a saved layout (or a torn-off tab) brings back: the tabs
+    // into the store, the split tree rebuilt around them.
+    private func restorePaneTree(saved: SavedWindow?, adopted: Tab?) -> (root: NSView?, byIndex: [Int: Tab]) {
         // A saved layout replays here; a tab whose content can't come back
         // (file gone, transcript session dead) is dropped, its pane collapses,
         // and if nothing restores the window falls back to a plain shell.
@@ -163,7 +198,12 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
             store.insert(adopted)
             restoredRoot = makePane(displaying: adopted).container
         }
+        return (restoredRoot, restoredByIndex)
+    }
 
+    // Puts the restored tree — or a fresh shell when nothing came back — into
+    // the host; returns that fresh pane so the caller can start its shell.
+    private func installPaneTree(restoredRoot: NSView?) -> Pane? {
         let fallbackPane: Pane?
         if let restoredRoot {
             paneTreeRoot = restoredRoot
@@ -177,7 +217,10 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
             fallbackPane = root
         }
         paneTreeHost.addSubview(paneTreeRoot)
+        return fallbackPane
+    }
 
+    private func makeSidebar(frame: NSRect, startDirectory: String) {
         let savedWidth = UserDefaults.standard.double(forKey: DefaultsKey.sidebarWidth)
         let sidebarWidth = savedWidth > 0 ? CGFloat(savedWidth) : SidebarView.defaultWidth
         sidebar = SidebarView(frame: NSRect(x: 0, y: 0, width: sidebarWidth, height: frame.height))
@@ -190,6 +233,11 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         // overrides both).
         FavoritesStore.shared.noteRecentFolder(projectIndex.root)
         sidebar.recentFolders.currentRoot = projectIndex.root
+    }
+
+    // Every sidebar callback lands here, so the tabs read as one table of
+    // "this row does that" rather than being scattered through the init.
+    private func wireSidebar() {
         sidebar.fileBrowser.onOpenFile = { [weak self] path in
             self?.openFile(atPath: path, line: nil)
         }
@@ -335,6 +383,9 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.usageFooter.onOpenSettings = { [weak self] in
             self?.appDelegate.installClaudeIntegration(nil)
         }
+    }
+
+    private func restorePinnedSidebarRoot() {
         // Restore a previously pinned root (one key across windows, like
         // sidebarWidth); a vanished directory silently unpins.
         if let pinned = UserDefaults.standard.string(forKey: DefaultsKey.sidebarPinnedRoot) {
@@ -345,7 +396,10 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
                 UserDefaults.standard.removeObject(forKey: DefaultsKey.sidebarPinnedRoot)
             }
         }
+    }
 
+    // The activity bar beside the sidebar split, both inside the root view.
+    private func assembleRootView(frame: NSRect) {
         let split = SuitSplitView(frame: frame)
         split.isVertical = true
         split.dividerStyle = .thin
@@ -378,45 +432,45 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
 
         window.contentView = rootContainer
         window.backgroundColor = Theme.well
+    }
 
-        if let fallbackPane {
-            window.title = fallbackPane.displayTitle
-            window.makeFirstResponder(fallbackPane.focusTarget)
-            fallbackPane.terminalContent?.start(in: startDirectory)
-        } else {
-            if let saved, saved.frame.width > 100, saved.frame.height > 100 {
-                window.setFrame(saved.frame, display: false)
+    // A restored window: its saved frame, the focus it had, and the divider
+    // and scroll positions that need the window's real size first.
+    private func finishRestore(saved: SavedWindow?, restoredByIndex: [Int: Tab]) {
+        if let saved, saved.frame.width > 100, saved.frame.height > 100 {
+            window.setFrame(saved.frame, display: false)
+        }
+        updateBorderVisibility()
+        // Focus the pane that was focused at capture time, if its tab came
+        // back visible; otherwise the first pane in layout order.
+        let activeTab = saved?.activeTabIndex.flatMap { restoredByIndex[$0] }
+        let focusTarget = activeTab?.pane ?? firstPane(in: paneTreeRoot)
+        if let focusTarget {
+            window.title = focusTarget.displayTitle
+            window.makeFirstResponder(focusTarget.focusTarget)
+        }
+        // Divider fractions need the window's real size; parents were
+        // appended after their children in buildNode, so the reversed
+        // order sizes outer splits before the splits nested inside them.
+        let pending = pendingDividerFractions.reversed()
+        pendingDividerFractions = []
+        let scrolls = pendingScrollRestores
+        pendingScrollRestores = []
+        DispatchQueue.main.async {
+            for (split, fraction) in pending {
+                split.layoutSubtreeIfNeeded()
+                let total = split.isVertical ? split.frame.width : split.frame.height
+                split.setPosition(total * CGFloat(fraction), ofDividerAt: 0)
             }
-            updateBorderVisibility()
-            // Focus the pane that was focused at capture time, if its tab came
-            // back visible; otherwise the first pane in layout order.
-            let activeTab = saved?.activeTabIndex.flatMap { restoredByIndex[$0] }
-            let focusTarget = activeTab?.pane ?? firstPane(in: paneTreeRoot)
-            if let focusTarget {
-                window.title = focusTarget.displayTitle
-                window.makeFirstResponder(focusTarget.focusTarget)
-            }
-            // Divider fractions need the window's real size; parents were
-            // appended after their children in buildNode, so the reversed
-            // order sizes outer splits before the splits nested inside them.
-            let pending = pendingDividerFractions.reversed()
-            pendingDividerFractions = []
-            let scrolls = pendingScrollRestores
-            pendingScrollRestores = []
+            // One more turn so the scroll views re-tile to their final
+            // widths before line positions are computed.
             DispatchQueue.main.async {
-                for (split, fraction) in pending {
-                    split.layoutSubtreeIfNeeded()
-                    let total = split.isVertical ? split.frame.width : split.frame.height
-                    split.setPosition(total * CGFloat(fraction), ofDividerAt: 0)
-                }
-                // One more turn so the scroll views re-tile to their final
-                // widths before line positions are computed.
-                DispatchQueue.main.async {
-                    for restore in scrolls { restore() }
-                }
+                for restore in scrolls { restore() }
             }
         }
+    }
 
+    private func adoptStrandedTabs() {
         // Any restored tab not placed in the split tree (a former window-level
         // background tab, from before per-pane ownership existed) has no home
         // pane yet. Give each to the focused/first pane so it appears in that
@@ -426,8 +480,5 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
                 tab.homePane = home
             }
         }
-
-        refreshTabSurfaces()
-        startObservingTheme()
     }
 }

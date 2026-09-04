@@ -7,11 +7,24 @@ import Cocoa
 extension AppDelegate {
     // MARK: - Menu
 
+    // One builder per top-level menu, in menu-bar order; each returns its
+    // menu and this hangs them off the bar. Split by menu so a shortcut lives
+    // in a function named for the menu it is in, not in one four-hundred-line
+    // list.
     func buildMenu() {
         let mainMenu = NSMenu()
+        for menu in [
+            makeAppMenu(), makeFileMenu(), makeEditMenu(), makeTabsMenu(),
+            makeScreenMenu(), makeViewMenu(), makeWindowMenu(),
+        ] {
+            let item = NSMenuItem()
+            item.submenu = menu
+            mainMenu.addItem(item)
+        }
+        NSApp.mainMenu = mainMenu
+    }
 
-        let appMenuItem = NSMenuItem()
-        mainMenu.addItem(appMenuItem)
+    private func makeAppMenu() -> NSMenu {
         let appMenu = NSMenu()
         let aboutItem = appMenu.addItem(withTitle: "About Suit", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         aboutItem.target = NSApp
@@ -24,10 +37,10 @@ extension AppDelegate {
         integrationItem.target = self
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit Suit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        appMenuItem.submenu = appMenu
+        return appMenu
+    }
 
-        let fileMenuItem = NSMenuItem()
-        mainMenu.addItem(fileMenuItem)
+    private func makeFileMenu() -> NSMenu {
         let fileMenu = NSMenu(title: "File")
         // ⌘N — the editor meaning, as in every editor. New Window keeps the
         // gesture one modifier away at ⇧⌘N (see the Window menu below).
@@ -39,10 +52,10 @@ extension AppDelegate {
         // auto-disabled (and the write no-ops) when no editable file is focused.
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Save", action: #selector(ViewerTextView.saveFile(_:)), keyEquivalent: "s")
-        fileMenuItem.submenu = fileMenu
+        return fileMenu
+    }
 
-        let editMenuItem = NSMenuItem()
-        mainMenu.addItem(editMenuItem)
+    private func makeEditMenu() -> NSMenu {
         let editMenu = NSMenu(title: "Edit")
 
         // The standard editing commands have to be *menu items*, not just
@@ -137,13 +150,12 @@ extension AppDelegate {
 
         let allOccurrencesItem = editMenu.addItem(withTitle: "Select All Occurrences", action: #selector(ViewerTextView.selectAllOccurrences(_:)), keyEquivalent: "g")
         allOccurrencesItem.keyEquivalentModifierMask = [.command, .control]
+        return editMenu
+    }
 
-        editMenuItem.submenu = editMenu
-
+    private func makeTabsMenu() -> NSMenu {
         // The Tabs menu (browser-tab model): one tab list per window owns every
         // tab; these commands operate on it.
-        let tabMenuItem = NSMenuItem()
-        mainMenu.addItem(tabMenuItem)
         let tabMenu = NSMenu(title: "Tabs")
 
         let newTabItem = tabMenu.addItem(withTitle: "New Tab", action: #selector(newTab(_:)), keyEquivalent: "t")
@@ -198,14 +210,13 @@ extension AppDelegate {
         lastTabItem.target = self
         lastTabItem.tag = 9
         goToTabItem.submenu = goToTabMenu
+        return tabMenu
+    }
 
-        tabMenuItem.submenu = tabMenu
-
+    private func makeScreenMenu() -> NSMenu {
         // The Screen menu: the main screen shows one tab; splitting
         // it is a tab operation (strip right-click ▸ Split Screen, or drag a
         // tab to an edge), so only unsplit and focus movement live here.
-        let paneMenuItem = NSMenuItem()
-        mainMenu.addItem(paneMenuItem)
         let paneMenu = NSMenu(title: "Screen")
 
         // ⌘D: split with a fresh shell; the strip's right-click ▸ Split Screen
@@ -248,11 +259,10 @@ extension AppDelegate {
         saveLayoutItem.target = self
         let openLayoutItem = paneMenu.addItem(withTitle: "Open Layout…", action: #selector(openLayout(_:)), keyEquivalent: "")
         openLayoutItem.target = self
+        return paneMenu
+    }
 
-        paneMenuItem.submenu = paneMenu
-
-        let viewMenuItem = NSMenuItem()
-        mainMenu.addItem(viewMenuItem)
+    private func makeViewMenu() -> NSMenu {
         let viewMenu = NSMenu(title: "View")
 
         let commandPaletteItem = viewMenu.addItem(withTitle: "Command Palette…", action: #selector(showCommandPalette(_:)), keyEquivalent: "k")
@@ -400,11 +410,10 @@ extension AppDelegate {
 
         let unfoldAllItem = viewMenu.addItem(withTitle: "Unfold All", action: #selector(ViewerTextView.unfoldAllBlocks(_:)), keyEquivalent: "0")
         unfoldAllItem.keyEquivalentModifierMask = [.command, .option, .shift]
+        return viewMenu
+    }
 
-        viewMenuItem.submenu = viewMenu
-
-        let windowMenuItem = NSMenuItem()
-        mainMenu.addItem(windowMenuItem)
+    private func makeWindowMenu() -> NSMenu {
         let windowMenu = NSMenu(title: "Window")
 
         // ⇧⌘N, not ⌘N: File ▸ New File took the unshifted key, matching the
@@ -413,14 +422,12 @@ extension AppDelegate {
         newWindowItem.keyEquivalentModifierMask = [.command, .shift]
         newWindowItem.target = self
 
-        windowMenuItem.submenu = windowMenu
         // AppKit appends the open-window list to this menu on its own once it's
         // registered as the app's Window menu. (Native window-tab commands
         // don't appear — window.tabbingMode is .disallowed; the strip is the
         // one tab system.)
         NSApp.windowsMenu = windowMenu
-
-        NSApp.mainMenu = mainMenu
+        return windowMenu
     }
 
     // App menu ▸ Check for Updates… — the manual check; always answers with

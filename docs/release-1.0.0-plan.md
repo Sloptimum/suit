@@ -73,7 +73,7 @@ current in this file. Tick a box in the same commit that finishes the step.
       the "ROADMAP Phase N" references in ten scripts and the hook script dropped;
       `design/roadmap-playground.html` removed; `docs/features.md` notes the loading placeholder
       on diff tabs.
-- [ ] **10. Split the two wiring giants.** `AppDelegate.buildMenu` (419 lines) split by menu;
+- [x] **10. Split the two wiring giants.** `AppDelegate.buildMenu` (419 lines) split by menu;
       `TerminalWindowController.init` (343 lines) split by sidebar tab. Pure moves, no behavior
       change. Last, because it is the least valuable and the most conflict-prone.
 
