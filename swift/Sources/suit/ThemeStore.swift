@@ -45,12 +45,9 @@ final class ThemeStore {
         selectedId = loadSelection()
     }
 
-    // MARK: - Paths ($HOME-resolved so harnesses can sandbox them)
+    // MARK: - Paths
 
-    private var suitDir: URL {
-        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-        return URL(fileURLWithPath: home + "/.suit")
-    }
+    private var suitDir: URL { URL(fileURLWithPath: SuitPaths.directory) }
     private var themesDir: URL { suitDir.appendingPathComponent("themes", isDirectory: true) }
     private var selectionURL: URL { suitDir.appendingPathComponent("theme.json") }
 

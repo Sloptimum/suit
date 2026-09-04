@@ -15,11 +15,8 @@ final class BackgroundTaskStore {
     static let shared = BackgroundTaskStore()
     static let didUpdate = Notification.Name("BackgroundTaskStoreDidUpdate")
 
-    // $HOME first (not NSHomeDirectory()), same as ClaudeSessionMonitor /
-    // ClaudeIntegration: the suit-bg wrapper writes to "$HOME/.suit/tasks", and
-    // an overridden $HOME sandboxes both sides for harness runs.
-    static let tasksDirectory =
-        (ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()) + "/.suit/tasks"
+    // Where the suit-bg wrapper drops its records ("$HOME/.suit/tasks").
+    static var tasksDirectory: String { SuitPaths.directory + "/tasks" }
 
     // Finished records are dropped this long after their process last mattered,
     // so the directory doesn't grow without bound.

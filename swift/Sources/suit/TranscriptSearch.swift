@@ -9,12 +9,9 @@ import Cocoa
 // JSON line is parsed back into a readable snippet with parseTranscriptLine and
 // grouped by session.
 
-// Where the transcript JSONL lives. Resolves ~ from $HOME (not
-// NSHomeDirectory()) so a harness can sandbox the corpus, matching
-// ClaudeIntegration's convention.
+// Where the transcript JSONL lives.
 func claudeProjectsDirectory() -> String {
-    let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-    return home + "/.claude/projects"
+    SuitPaths.claudeDirectory + "/projects"
 }
 
 // A session's identity for the results grouping: which file, and how to label

@@ -96,13 +96,9 @@ final class ClaudeSessionMonitor {
     private(set) var sessions: [ClaudeSession] = []
     private(set) var usage: ClaudeUsage?
 
-    // $HOME rather than NSHomeDirectory(), same as ClaudeIntegration: the
-    // hook/statusline scripts that produce these files write to "$HOME/.suit",
-    // and an overridden $HOME sandboxes both sides for harness runs.
-    private static let suitDirectory =
-        (ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()) + "/.suit"
-    private let sessionsDirectory = ClaudeSessionMonitor.suitDirectory + "/sessions"
-    private let statusFile = ClaudeSessionMonitor.suitDirectory + "/claude-status.json"
+    // Where the hook/statusline scripts write ("$HOME/.suit", see SuitPaths).
+    private let sessionsDirectory = SuitPaths.directory + "/sessions"
+    private let statusFile = SuitPaths.directory + "/claude-status.json"
 
     private var directorySource: DispatchSourceFileSystemObject?
     private var parentSource: DispatchSourceFileSystemObject?

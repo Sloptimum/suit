@@ -19,6 +19,7 @@ trap 'rm -f "$DRIVER"' EXIT
 echo "==> Compiling activity-feed logic test"
 if ! swiftc -O \
     "$ROOT/swift/Sources/suit/Activity.swift" \
+    "$ROOT/swift/Sources/suit/SuitPaths.swift" \
     "$ROOT/scripts/activity-test/main.swift" \
     -o "$DRIVER"; then
     echo "COMPILE FAILED"

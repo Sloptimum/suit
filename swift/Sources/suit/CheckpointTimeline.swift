@@ -381,7 +381,7 @@ final class CheckpointTimelinePaneContent: NSObject, PaneContent, NSTextViewDele
     // then opens it read-only through the same plumbing as any file link.
     private func openSnapshot(backupFileName: String, originalPath: String) {
         guard let sessionId else { return }
-        let source = NSHomeDirectory() + "/.claude/file-history/" + sessionId + "/" + backupFileName
+        let source = SuitPaths.claudeDirectory + "/file-history/" + sessionId + "/" + backupFileName
         guard let data = FileManager.default.contents(atPath: source) else {
             NSSound.beep()
             return

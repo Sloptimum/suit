@@ -14,14 +14,8 @@ enum ClaudeIntegration {
     static let sessionStateScript = "suit-session-state.sh"
     static var scriptNames: [String] { [statuslineScript, sessionStateScript] }
 
-    // $HOME rather than NSHomeDirectory(): the scripts and Claude Code both
-    // resolve ~ from the environment, and it lets tests point everything at a
-    // scratch home. NSHomeDirectory() ignores an overridden $HOME on macOS.
-    static var home: String {
-        ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-    }
-    static var installDir: String { home + "/.suit/scripts" }
-    static var settingsPath: String { home + "/.claude/settings.json" }
+    static var installDir: String { SuitPaths.directory + "/scripts" }
+    static var settingsPath: String { SuitPaths.claudeDirectory + "/settings.json" }
 
     // Hook event → argument passed to suit-session-state.sh.
     private static let hookEvents: [(event: String, argument: String)] = [

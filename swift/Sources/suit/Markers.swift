@@ -43,11 +43,8 @@ final class MarkerStore {
 
     private var model = Model()
 
-    // $HOME rather than NSHomeDirectory() so tests/harnesses can point the
-    // store at a scratch home (same reasoning as FavoritesStore/Notes).
     private var fileURL: URL {
-        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-        return URL(fileURLWithPath: home + "/.suit/markers.json")
+        URL(fileURLWithPath: SuitPaths.directory + "/markers.json")
     }
 
     private init() {

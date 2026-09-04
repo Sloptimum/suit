@@ -19,6 +19,7 @@ trap 'rm -f "$DRIVER"' EXIT
 echo "==> Compiling session-recipes logic test"
 if ! swiftc -O \
     "$ROOT/swift/Sources/suit/Recipes.swift" \
+    "$ROOT/swift/Sources/suit/SuitPaths.swift" \
     "$ROOT/scripts/recipes-test/main.swift" \
     -o "$DRIVER"; then
     echo "COMPILE FAILED"
