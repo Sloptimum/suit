@@ -3,7 +3,7 @@ import Cocoa
 // What a pane hosts. Today that's always a terminal (TerminalPaneContent), but
 // the split tree, title bars, focus borders, and drag rearrangement in
 // Pane/TerminalWindowController are content-agnostic: a file viewer, diff view,
-// or search-results pane (see ROADMAP.md) plugs in by implementing this and
+// or search-results pane plugs in by implementing this and
 // changing nothing else.
 protocol PaneContent: AnyObject {
     // The viewport currently displaying this content; nil while its tab is
