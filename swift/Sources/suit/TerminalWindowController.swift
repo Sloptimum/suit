@@ -178,10 +178,10 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         }
         paneTreeHost.addSubview(paneTreeRoot)
 
-        let savedWidth = UserDefaults.standard.double(forKey: "sidebarWidth")
+        let savedWidth = UserDefaults.standard.double(forKey: DefaultsKey.sidebarWidth)
         let sidebarWidth = savedWidth > 0 ? CGFloat(savedWidth) : SidebarView.defaultWidth
         sidebar = SidebarView(frame: NSRect(x: 0, y: 0, width: sidebarWidth, height: frame.height))
-        sidebar.isHidden = !UserDefaults.standard.bool(forKey: "sidebarVisible")
+        sidebar.isHidden = !UserDefaults.standard.bool(forKey: DefaultsKey.sidebarVisible)
 
         projectIndex = FileIndex.shared(forDirectory: startDirectory)
         sidebar.fileBrowser.configure(index: projectIndex)
@@ -337,12 +337,12 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         }
         // Restore a previously pinned root (one key across windows, like
         // sidebarWidth); a vanished directory silently unpins.
-        if let pinned = UserDefaults.standard.string(forKey: "sidebarPinnedRoot") {
+        if let pinned = UserDefaults.standard.string(forKey: DefaultsKey.sidebarPinnedRoot) {
             var isDirectory: ObjCBool = false
             if FileManager.default.fileExists(atPath: pinned, isDirectory: &isDirectory), isDirectory.boolValue {
                 applySidebarPin(pinned)
             } else {
-                UserDefaults.standard.removeObject(forKey: "sidebarPinnedRoot")
+                UserDefaults.standard.removeObject(forKey: DefaultsKey.sidebarPinnedRoot)
             }
         }
 

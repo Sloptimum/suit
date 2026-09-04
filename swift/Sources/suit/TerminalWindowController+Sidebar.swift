@@ -10,7 +10,7 @@ extension TerminalWindowController {
     func toggleSidebar() {
         sidebar.isHidden.toggle()
         layoutSidebarSplit()
-        UserDefaults.standard.set(!sidebar.isHidden, forKey: "sidebarVisible")
+        UserDefaults.standard.set(!sidebar.isHidden, forKey: DefaultsKey.sidebarVisible)
         // ⌘B changes no selection, so the shown tab has to be told the panel is
         // back — Source Control defers its loads while hidden.
         sidebar.shownTabDidBecomeVisible()
@@ -63,7 +63,7 @@ extension TerminalWindowController {
         if sidebar.isHidden {
             sidebar.isHidden = false
             layoutSidebarSplit()
-            UserDefaults.standard.set(true, forKey: "sidebarVisible")
+            UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
         }
         sidebar.showSearch()
     }
@@ -168,12 +168,12 @@ extension TerminalWindowController {
     // switcher pins without yanking the user over to the file tree).
     func pinSidebar(toDirectory path: String, showFiles: Bool = true) {
         applySidebarPin(path)
-        UserDefaults.standard.set(path, forKey: "sidebarPinnedRoot")
+        UserDefaults.standard.set(path, forKey: DefaultsKey.sidebarPinnedRoot)
         // Show the result: unhide the sidebar if needed and land on Files.
         if sidebar.isHidden {
             sidebar.isHidden = false
             layoutSidebarSplit()
-            UserDefaults.standard.set(true, forKey: "sidebarVisible")
+            UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
         }
         if showFiles {
             sidebar.select(tab: .files)
@@ -268,7 +268,7 @@ extension TerminalWindowController {
 
     func unpinSidebarFolder() {
         pinnedSidebarRoot = nil
-        UserDefaults.standard.removeObject(forKey: "sidebarPinnedRoot")
+        UserDefaults.standard.removeObject(forKey: DefaultsKey.sidebarPinnedRoot)
         sidebar.fileBrowser.setPinned(false)
         // Back to following the focused pane's project.
         let index = currentFileIndex()
@@ -282,7 +282,7 @@ extension TerminalWindowController {
         if sidebar.isHidden {
             sidebar.isHidden = false
             layoutSidebarSplit()
-            UserDefaults.standard.set(true, forKey: "sidebarVisible")
+            UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
         }
         sidebar.select(tab: .notes)
     }
@@ -292,7 +292,7 @@ extension TerminalWindowController {
         if sidebar.isHidden {
             sidebar.isHidden = false
             layoutSidebarSplit()
-            UserDefaults.standard.set(true, forKey: "sidebarVisible")
+            UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
         }
         sidebar.select(tab: .git)
     }
@@ -309,7 +309,7 @@ extension TerminalWindowController {
         if sidebar.isHidden {
             sidebar.isHidden = false
             layoutSidebarSplit()
-            UserDefaults.standard.set(true, forKey: "sidebarVisible")
+            UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
         }
         sidebar.select(tab: .ops)
     }
@@ -319,7 +319,7 @@ extension TerminalWindowController {
         if sidebar.isHidden {
             sidebar.isHidden = false
             layoutSidebarSplit()
-            UserDefaults.standard.set(true, forKey: "sidebarVisible")
+            UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
         }
         sidebar.select(tab: .bookmarks)
     }

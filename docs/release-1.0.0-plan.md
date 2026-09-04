@@ -57,7 +57,7 @@ current in this file. Tick a box in the same commit that finishes the step.
       `BackgroundTaskStore`; `processParentMap` lives once in `ProcessUtil`; the four
       `git worktree list --porcelain` parsers (WorktreeSwitcher, Markers, FleetDashboard,
       WorktreeTasks) become one. Harness for the tailer and the parsers.
-- [ ] **6. Typed defaults keys.** A `Defaults.Key` enum replaces the 35 hand-typed UserDefaults
+- [x] **6. Typed defaults keys.** A `Defaults.Key` enum replaces the 35 hand-typed UserDefaults
       strings across 14 files, so a typo is a compile error. The load/save ledger in
       `AppDelegate+SettingsPersistence` keeps its shape but reads keys from the enum.
 - [ ] **7. Harnesses for the uncovered cores.** `TranscriptParsing`, `SlashCommands`,

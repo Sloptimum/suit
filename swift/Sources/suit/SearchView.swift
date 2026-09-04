@@ -92,7 +92,7 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
     var flatMatches: [SearchMatchNode] = []
     // Results as a file tree (the default) or as one flat row per match. Only
     // the shape of the outline changes; the same nodes back both.
-    var isFlatList = UserDefaults.standard.bool(forKey: "searchResultsFlat")
+    var isFlatList = UserDefaults.standard.bool(forKey: DefaultsKey.searchResultsFlat)
 
     private var groupsByPath: [String: SearchFileGroup] = [:]
     private var matchCount = 0
@@ -106,8 +106,8 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
     // The replacement row and the scope/glob controls each collapse on their
     // own, and each remembers its state — a session that never replaces should
     // not pay a row of chrome for it on every launch.
-    private var replaceExpanded = UserDefaults.standard.bool(forKey: "searchReplaceExpanded")
-    private var detailsExpanded = UserDefaults.standard.bool(forKey: "searchDetailsExpanded")
+    private var replaceExpanded = UserDefaults.standard.bool(forKey: DefaultsKey.searchReplaceExpanded)
+    private var detailsExpanded = UserDefaults.standard.bool(forKey: DefaultsKey.searchDetailsExpanded)
     // What the collapse-all button does next. Tracked rather than derived,
     // because "is anything expanded" is only answerable by walking every row.
     private var resultsCollapsed = false
@@ -445,7 +445,7 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
 
     @objc private func toggleReplace() {
         replaceExpanded.toggle()
-        UserDefaults.standard.set(replaceExpanded, forKey: "searchReplaceExpanded")
+        UserDefaults.standard.set(replaceExpanded, forKey: DefaultsKey.searchReplaceExpanded)
         updateReplaceChevron()
         layoutContents()
         if replaceExpanded {
@@ -455,7 +455,7 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
 
     @objc private func toggleDetails() {
         detailsExpanded.toggle()
-        UserDefaults.standard.set(detailsExpanded, forKey: "searchDetailsExpanded")
+        UserDefaults.standard.set(detailsExpanded, forKey: DefaultsKey.searchDetailsExpanded)
         layoutContents()
         updateDetailsTint()
     }
@@ -486,7 +486,7 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
 
     @objc private func toggleViewMode() {
         isFlatList.toggle()
-        UserDefaults.standard.set(isFlatList, forKey: "searchResultsFlat")
+        UserDefaults.standard.set(isFlatList, forKey: DefaultsKey.searchResultsFlat)
         updateViewModeButton()
         outlineView.reloadData()
         if !isFlatList { expandAllGroups() }
