@@ -78,6 +78,9 @@ current in this file. Tick a box in the same commit that finishes the step.
       change. Last, because it is the least valuable and the most conflict-prone.
 
 ### Phase 4 — close
-- [ ] `scripts/test.sh --all` green, `./build.sh` green, app launched once from the bundle.
+- [x] `scripts/test.sh --all` green (43 of 43), `./build.sh` green, and the app rendered offscreen
+      with a sandboxed `$HOME` (the design-reference scenario plus a diff tab on a fixture repo,
+      so the split initializer and the async diff load ran for real). The bundle itself was not
+      launched: it would share the live `~/.suit` and defaults with a running Suit.
 - [ ] Advisor review of the full diff (CLAUDE.md §7): the diff exceeds 300 lines.
 - [ ] Merge `main` into `1.0.0`, resolve, re-run tests, open the PR.
