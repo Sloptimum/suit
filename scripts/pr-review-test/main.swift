@@ -1,6 +1,6 @@
 import Foundation
 
-// Standalone assertion driver for the PR-review core (ROADMAP Phase 39),
+// Standalone assertion driver for the PR-review core,
 // compiled against swift/Sources/suit/PRReview.swift + DiffReview.swift
 // (both Foundation-only) by scripts/pr-review-test.sh. Mirrors the Recipes /
 // FeedbackRouting standalone-test pattern: no app, no UI — the `gh pr list`

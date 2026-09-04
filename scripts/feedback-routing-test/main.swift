@@ -1,6 +1,6 @@
 import Foundation
 
-// Standalone logic test for the Phase 29 feedback-routing core. Compiled with
+// Standalone logic test for the feedback-routing core. Compiled with
 // only swift/Sources/suit/FeedbackRouting.swift (Foundation-only, no app deps),
 // the FeedbackRouting pattern. Exercises the pure parsers,
 // the session-attribution rule, and the composed prompts against fixtures with

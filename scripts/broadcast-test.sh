@@ -1,5 +1,5 @@
 #!/bin/bash
-# Broadcast logic test (ROADMAP Phase 35): compiles the UI-free core
+# Broadcast logic test: compiles the UI-free core
 # (swift/Sources/suit/Broadcast.swift, Foundation-only, no app deps) with
 # scripts/broadcast-test/main.swift and runs its assertions — the pure target
 # resolution (scope × hosted × fleet order, dedup, orphan drop) and the fan-out

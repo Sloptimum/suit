@@ -1,5 +1,5 @@
 #!/bin/bash
-# Activity-feed logic test (ROADMAP Phase 38): compiles the UI-free core
+# Activity-feed logic test: compiles the UI-free core
 # (swift/Sources/suit/Activity.swift, Foundation-only, no app deps) with
 # scripts/activity-test/main.swift and runs its assertions — newest-first feed
 # ordering (incl. deterministic ties), row routing (session > PR > none),

@@ -1,5 +1,5 @@
 #!/bin/bash
-# File-edit logic test (ROADMAP Phase 37): compiles the UI-free core
+# File-edit logic test: compiles the UI-free core
 # (swift/Sources/suit/FileEdit.swift, Foundation-only, no app deps) with
 # scripts/file-edit-test/main.swift and runs its assertions — the dirty-flag
 # transitions (flip on first divergence / revert), the save & load baseline

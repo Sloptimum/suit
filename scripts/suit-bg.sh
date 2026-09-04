@@ -1,6 +1,6 @@
 #!/bin/bash
 # suit-bg — launch a long-running command in the background, tracked by Suit's
-# background-task monitor (ROADMAP Phase 30).
+# background-task monitor.
 #
 # It runs the command detached with its stdout+stderr captured to a log file,
 # and drops a small JSON record into ~/.suit/tasks/ that the monitor reads:

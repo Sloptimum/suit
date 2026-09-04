@@ -1,6 +1,6 @@
 import Foundation
 
-// Standalone assertions for the Phase 38 activity-feed core (Activity.swift).
+// Standalone assertions for the activity-feed core (Activity.swift).
 // Compiled against that one Foundation-only file by scripts/activity-test.sh —
 // no app, no UI. Mirrors the FeedbackRouting / Recipes /
 // FileEdit harness pattern.

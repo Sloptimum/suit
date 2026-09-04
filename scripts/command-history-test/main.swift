@@ -1,6 +1,6 @@
 import Foundation
 
-// Standalone assertion driver for the command-history core (ROADMAP Phase 43),
+// Standalone assertion driver for the command-history core,
 // compiled against swift/Sources/suit/CommandHistory.swift + FuzzyMatch.swift
 // (Foundation-only) by scripts/command-history-test.sh. Mirrors the
 // FeedbackRouting standalone-test pattern: no app, no UI.

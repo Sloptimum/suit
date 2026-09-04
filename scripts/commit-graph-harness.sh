@@ -1,5 +1,5 @@
 #!/bin/bash
-# Commit-graph layout harness (ROADMAP Phase 34). Builds a throwaway fixture
+# Commit-graph layout harness. Builds a throwaway fixture
 # git repo with a fork and a merge (deterministic commit dates for a stable
 # order), captures `git log` in the exact format the pane uses, then compiles
 # the real CommitGraph.swift against the assertion driver in

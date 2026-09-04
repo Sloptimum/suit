@@ -1,5 +1,5 @@
 #!/bin/bash
-# Session-recipes logic test (ROADMAP Phase 36): compiles the UI-free core
+# Session-recipes logic test: compiles the UI-free core
 # (swift/Sources/suit/Recipes.swift, Foundation-only, no app deps) with
 # scripts/recipes-test/main.swift and runs its assertions — the recipe parser
 # (front-matter name / filename fallback), placeholder substitution, the slug,

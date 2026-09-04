@@ -19,7 +19,7 @@ mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 
 echo "==> Building Swift shell"
 # -j is a 6x speedup (~3 min -> ~30 s), not a tuning knob. swiftc plans one
-# frontend job per file — 253 of them for this module — and swift-driver runs
+# frontend job per file — 264 of them for this module — and swift-driver runs
 # them strictly serially by default, one core busy and ten idle. -j runs that
 # same job plan in parallel, so the emitted code is byte-for-byte what a plain
 # -O build produced; only the scheduling changed.
@@ -69,8 +69,8 @@ else
   echo "warning: rg not found — search will rely on a runtime fallback" >&2
 fi
 
-# Bundle universal-ctags (go-to-definition / find-references symbol index,
-# ROADMAP Phase 33) the same way as rg. Only a *universal* ctags is bundled —
+# Bundle universal-ctags (go-to-definition / find-references symbol index)
+# the same way as rg. Only a *universal* ctags is bundled —
 # macOS-stock /usr/bin/ctags is BSD ctags, which rejects our flags — so probe
 # --version for "Universal Ctags". When absent the app degrades to an rg word
 # search (see SymbolIndex.swift), so a missing binary is a warning, not a fail.
@@ -94,7 +94,7 @@ mkdir -p "$CONTENTS/Resources/claude"
 cp "$ROOT"/scripts/claude/*.sh "$CONTENTS/Resources/claude/"
 chmod +x "$CONTENTS/Resources/claude/"*.sh
 
-# Bundle the suit-bg background-task wrapper (ROADMAP Phase 30) so it ships with
+# Bundle the suit-bg background-task wrapper so it ships with
 # the app; users symlink it onto their PATH to track jobs in the monitor.
 cp "$ROOT/scripts/suit-bg.sh" "$CONTENTS/Resources/suit-bg.sh"
 chmod +x "$CONTENTS/Resources/suit-bg.sh"

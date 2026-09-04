@@ -1,6 +1,6 @@
 import Foundation
 
-// Standalone assertions for the Phase 41 saved-layouts core (Layouts.swift),
+// Standalone assertions for the saved-layouts core (Layouts.swift),
 // compiled with StateRestoration.swift + DiffReview.swift by
 // scripts/layouts-test.sh. Covers the catalog operations (save/overwrite/
 // rename/delete/sort), the LayoutStore's disk round-trip against a scratch

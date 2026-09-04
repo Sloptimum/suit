@@ -1,6 +1,6 @@
 import Foundation
 
-// Standalone logic test for the Phase 30 background-task monitor core. Compiled
+// Standalone logic test for the background-task monitor core. Compiled
 // with only swift/Sources/suit/BackgroundTasks.swift (Foundation-only, no app
 // deps) — the FeedbackRouting pattern.
 // Exercises the pure reconciliation (record → status crossed with liveness),

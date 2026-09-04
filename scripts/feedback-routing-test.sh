@@ -1,5 +1,5 @@
 #!/bin/bash
-# Feedback-routing logic test (ROADMAP Phase 29): compiles the UI-free core
+# Feedback-routing logic test: compiles the UI-free core
 # (swift/Sources/suit/FeedbackRouting.swift, Foundation-only, no app deps) with
 # scripts/feedback-routing-test/main.swift and runs its assertions — the pure
 # parsers (conflict porcelain, gh review/comment JSON, gh statusCheckRollup),

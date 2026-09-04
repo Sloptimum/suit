@@ -1,5 +1,5 @@
 #!/bin/sh
-# Claude Code hook → Suit session state (ROADMAP Phase 4).
+# Claude Code hook → Suit session state.
 #
 # Usage (in Claude Code settings hooks):
 #   UserPromptSubmit → suit-session-state.sh working
@@ -34,7 +34,7 @@ sid=$(printf '%s' "$input" | jq -r '.session_id // empty')
 cwd=$(printf '%s' "$input" | jq -r '.cwd // empty')
 summary=$(printf '%s' "$input" | jq -r '.prompt // .message // empty' | head -c 120 | tr '\n' ' ')
 transcript=$(printf '%s' "$input" | jq -r '.transcript_path // empty')
-# Permission mode (ROADMAP Phase 26): hook JSON carries it — default,
+# Permission mode: hook JSON carries it — default,
 # acceptEdits, plan, bypassPermissions — so Suit's Ask · Plan · Agent control
 # can read the mode back rather than only reflecting what it last sent. Optional.
 mode=$(printf '%s' "$input" | jq -r '.permission_mode // empty')

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Budget-guardrails logic test (ROADMAP Phase 42): compiles the UI-free core
+# Budget-guardrails logic test: compiles the UI-free core
 # (swift/Sources/suit/BudgetGuardrails.swift, Foundation-only, no app deps) with
 # scripts/budget-test/main.swift and runs its assertions — cap resolution
 # (per-session override vs default), the fires-once-at-the-threshold trip logic,

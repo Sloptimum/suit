@@ -6,7 +6,7 @@ Simplified Technical English.
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app. It is a native AppKit
 bundle. Each window contains a split tree of panes. Each pane shows tabs in the style of a web
 browser: terminals (`/bin/zsh -l -i` on the pty of SwiftTerm), file viewers, diffs, transcripts
-and dashboards. The app is one module of 192 Swift files. It uses only AppKit, the SwiftTerm
+and dashboards. The app is one module of 203 Swift files. It uses only AppKit, the SwiftTerm
 source in this repository, and the Hack font in the bundle.
 
 `README.md` introduces the app. `docs/features.md` gives the behavior of each function.
@@ -75,8 +75,8 @@ swiftc -O -j $(sysctl -n hw.ncpu) swift/Sources/suit/*.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell-$TASK && /tmp/suit-shell-$TASK
 ```
 
-**Always use the `-j` option.** `swiftc` makes one frontend job for each file. There are 273 files:
-212 sources and 61 files from SwiftTerm. By default, `swiftc` runs these jobs in sequence. This
+**Always use the `-j` option.** `swiftc` makes one frontend job for each file. There are 264 files:
+203 sources and 61 files from SwiftTerm. By default, `swiftc` runs these jobs in sequence. This
 takes about 3 minutes on one core, while ten cores do no work. The `-j` option decreases
 the time to about 30 seconds. It changes only the schedule of the jobs. Use `-Onone`
 (about 16 seconds) if you only need a binary that runs. Do not use `-Onone` to examine the
@@ -90,7 +90,7 @@ have this problem. Thus the source of SwiftTerm is in this repository
 Put each new Swift dependency in the repository in the same way.
 
 ```sh
-scripts/test.sh                 # 29 fast harnesses, ~seconds
+scripts/test.sh                 # 42 fast harnesses, ~seconds
 scripts/test.sh --all           # + the slow source-control gate (~40 s)
 scripts/test.sh --list          # names, scripts, speed
 scripts/editor-ops-test.sh      # one harness directly — the inner loop
@@ -149,7 +149,7 @@ cannot find: a black terminal with a light theme, or a control that the app did 
   draw, or read it again in `reapplyTheme`.
 - **`~/.suit/` is the directory for the data** (favorites, notes, recipes, layouts, sessions, tasks,
   markers, ssh hosts and themes). Each store obeys the pattern of `FavoritesStore`. It finds
-  `$HOME` through `ProcessInfo`, thus a harness can put it in a sandbox. It writes atomically with
+  `$HOME` through `SuitPaths` (which reads `ProcessInfo`), thus a harness can put it in a sandbox. It writes atomically with
   `StoreFile.swift`. It sends a `didUpdate` notification. A decoder must accept a key that is
   absent, and a key that it does not know. Thus a file from an older or a newer Suit continues to
   load.
@@ -179,9 +179,10 @@ comment is the true reference. A subsystem with more than one file has the shape
 | Theme | `Theme.swift` (the tokens), `Theme+Palettes.swift` (the 14 themes in the app), `ThemeStore.swift` (the catalog and the `.suittheme` files) |
 | Sidebar | `ActivityBarView.swift` (the strip of icons; `WindowRootView` puts it *outside* the sidebar split, thus it stays after ⌘B), `SidebarView.swift`, `FileBrowserView.swift`, `SearchView.swift` plus `SearchReplace.swift` (the find and replace functions of the Search tab), `RipgrepSearch.swift` |
 | Viewer and editor | `FileViewerPane.swift`, `EditorOps.swift`, `FindReplace.swift`, `CodeFolding.swift`, `SymbolIndex.swift`, `SyntaxHighlighter.swift` plus `SyntaxLanguages.swift`, `MarkdownPane.swift` |
-| Git and GitHub | `GitStatus.swift`, `GitView.swift` (the Source Control tab) plus `GitView+Commit.swift` (the stage function, the message box, the menu of actions), `GitBranchOps.swift` (the argv for each git action, without a user interface), `DiffPane.swift`, `DiffParser.swift`, `GitBranches.swift` (the wrapper for gh; it continues to operate without gh), `CommitGraph.swift`, `WorktreeTasks.swift` |
+| Git and GitHub | `GitStatus.swift`, `GitView.swift` (the Source Control tab) plus `GitView+Commit.swift` (the stage function, the message box, the menu of actions), `GitBranchOps.swift` (the argv for each git action, without a user interface), `DiffPane.swift`, `DiffParser.swift`, `GitBranches.swift` (the wrapper for gh; it continues to operate without gh), `GitOutputParsing.swift` (what git and gh print, read without a process), `CommitGraph.swift`, `WorktreeTasks.swift` |
 | Claude | `ClaudeSessions.swift`, `ClaudeIntegration.swift`, `TranscriptPane.swift`, `Recipes.swift`, `Dictation.swift`, `GoalComposition.swift` |
 | Fleet | `FleetDashboard.swift`, `FleetModel.swift`, `Activity.swift`, `BudgetGuardrails.swift` |
+| Shared plumbing | `ProcessUtil.swift` (the one process runner, `Git.executable`, the process table), `SuitPaths.swift` (`~/.suit` and `~/.claude`), `StoreFile.swift`, `FileWatcher.swift` and `FileTailer.swift` (a file that changes; a file that grows), `DirectoryWatcher.swift`, `DefaultsKey.swift` (each UserDefaults key, once) |
 | Root of the repository | `build.sh`, `scripts/claude/` (the hooks in the bundle), `scripts/*.sh` (the harnesses), `design/`, `Resources/Info.plist` (the bundle identifier `dev.kosych.suit`) |
 
 ## 6. Conventions

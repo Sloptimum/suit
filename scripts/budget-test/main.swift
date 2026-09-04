@@ -1,6 +1,6 @@
 import Foundation
 
-// Standalone assertion driver for the budget-guardrails core (ROADMAP Phase 42),
+// Standalone assertion driver for the budget-guardrails core,
 // compiled against swift/Sources/suit/BudgetGuardrails.swift (Foundation-only)
 // by scripts/budget-test.sh. Mirrors the FeedbackRouting
 // standalone-test pattern: no app, no UI. Asserts the trip logic the phase's

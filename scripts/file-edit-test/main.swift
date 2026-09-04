@@ -1,6 +1,6 @@
 import Foundation
 
-// Standalone assertion driver for the file-edit core (ROADMAP Phase 37),
+// Standalone assertion driver for the file-edit core,
 // compiled against swift/Sources/suit/FileEdit.swift (Foundation-only) by
 // scripts/file-edit-test.sh. Mirrors the Recipes / FeedbackRouting standalone-
 // test pattern: no app, no UI — the dirty-flag transitions, the save/load

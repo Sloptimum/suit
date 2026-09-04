@@ -23,7 +23,7 @@ swiftc -O -j $(sysctl -n hw.ncpu) swift/Sources/suit/*.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell && /tmp/suit-shell
 ```
 
-`-j` is not optional in practice. `swiftc` compiles this module as one frontend job per file — 267
+`-j` is not optional in practice. `swiftc` compiles this module as one frontend job per file — 264
 of them — and runs them serially unless told otherwise, which is why an unparallelized build takes
 about three minutes with a single core busy. With `-j` it's ~30 s, and the emitted code is
 identical; only the scheduling changes. Adding `-Onone` gets you to ~16 s when you just need a
