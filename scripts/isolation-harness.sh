@@ -1,5 +1,5 @@
 #!/bin/bash
-# Isolation + subagent-tree logic harness (ROADMAP Phase 31). Compiles the real
+# Isolation + subagent-tree logic harness. Compiles the real
 # TaskLaunch.swift (the per-task isolation decision) and SubagentTree.swift (the
 # session-anchored nesting/pruning core) against the assertion driver in
 # scripts/isolation-harness/main.swift, then runs it. Both files are

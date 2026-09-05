@@ -50,22 +50,19 @@ enum WorktreeTasks {
     // "worktree " entry of `git worktree list --porcelain` is always the main
     // working tree.
     static func mainRoot(ofWorktree path: String) -> String? {
-        guard let output = runProcess("/usr/bin/git", ["-C", path, "worktree", "list", "--porcelain"]) else {
+        guard let output = runProcess(Git.executable, ["-C", path, "worktree", "list", "--porcelain"]) else {
             return nil
         }
-        for line in output.split(separator: "\n") where line.hasPrefix("worktree ") {
-            return String(line.dropFirst("worktree ".count))
-        }
-        return nil
+        return WorktreeSwitcher.parseWorktrees(output).first?.path
     }
 
     static func currentBranch(_ path: String) -> String? {
-        runProcess("/usr/bin/git", ["-C", path, "rev-parse", "--abbrev-ref", "HEAD"])?
+        runProcess(Git.executable, ["-C", path, "rev-parse", "--abbrev-ref", "HEAD"])?
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func hasUncommittedChanges(_ path: String) -> Bool {
-        guard let output = runProcess("/usr/bin/git", ["-C", path, "status", "--porcelain"]) else {
+        guard let output = runProcess(Git.executable, ["-C", path, "status", "--porcelain"]) else {
             return false
         }
         return !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -162,26 +159,13 @@ enum WorktreeTasks {
     // git with stderr captured, since every failure path here is worth
     // showing. Internal: the Git tab's branch checkout reuses it.
     static func runGit(_ root: String, _ arguments: [String]) -> Result<String, WorktreeTaskError> {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        process.arguments = ["-C", root] + arguments
-        let stdout = Pipe()
-        let stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
+        let result: ProcessResult
         do {
-            try process.run()
+            result = try runProcessCapturing(Git.executable, ["-C", root] + arguments)
         } catch {
             return .failure(WorktreeTaskError(message: error.localizedDescription))
         }
-        let outData = stdout.fileHandleForReading.readDataToEndOfFile()
-        let errData = stderr.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        if process.terminationStatus == 0 {
-            return .success(String(decoding: outData, as: UTF8.self))
-        }
-        let message = String(decoding: errData, as: UTF8.self)
-            .split(separator: "\n").first.map(String.init) ?? "git exited \(process.terminationStatus)"
-        return .failure(WorktreeTaskError(message: message.trimmingCharacters(in: .whitespaces)))
+        if result.succeeded { return .success(result.stdout) }
+        return .failure(WorktreeTaskError(message: result.firstStderrLine ?? "git exited \(result.status)"))
     }
 }

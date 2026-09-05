@@ -76,11 +76,10 @@ final class CommandHistoryStore {
     }
 
     // $HISTFILE when the environment exports it, else the usual zsh / bash files.
-    // $HOME-first so a harness could sandbox it (matching the other ~/.suit
-    // readers). Returns the first existing candidate, or nil (→ scrollback only).
+    // Returns the first existing candidate, or nil (→ scrollback only).
     private static func historyPath() -> String? {
         let env = ProcessInfo.processInfo.environment
-        let home = env["HOME"] ?? NSHomeDirectory()
+        let home = SuitPaths.home
         var candidates: [String] = []
         if let histfile = env["HISTFILE"], !histfile.isEmpty {
             candidates.append((histfile as NSString).expandingTildeInPath)

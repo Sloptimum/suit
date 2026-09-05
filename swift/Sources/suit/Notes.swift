@@ -105,12 +105,7 @@ final class NotesStore {
 
     private var watcher: FileWatcher?
 
-    // $HOME rather than NSHomeDirectory(), same as ClaudeIntegration: an
-    // overridden $HOME sandboxes the directory for harness runs. Computed, not
-    // stored, so a harness that re-points $HOME between cases is honored.
-    private static var suitDirectory: String {
-        (ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()) + "/.suit"
-    }
+    private static var suitDirectory: String { SuitPaths.directory }
     static var directory: String { suitDirectory + "/notes" }
     // The two shapes notes were kept in before they were files: the list in
     // notes.json, and before that a single free-text notes.txt. Both are read

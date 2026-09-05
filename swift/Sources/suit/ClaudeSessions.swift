@@ -96,17 +96,11 @@ final class ClaudeSessionMonitor {
     private(set) var sessions: [ClaudeSession] = []
     private(set) var usage: ClaudeUsage?
 
-    // $HOME rather than NSHomeDirectory(), same as ClaudeIntegration: the
-    // hook/statusline scripts that produce these files write to "$HOME/.suit",
-    // and an overridden $HOME sandboxes both sides for harness runs.
-    private static let suitDirectory =
-        (ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()) + "/.suit"
-    private let sessionsDirectory = ClaudeSessionMonitor.suitDirectory + "/sessions"
-    private let statusFile = ClaudeSessionMonitor.suitDirectory + "/claude-status.json"
+    // Where the hook/statusline scripts write ("$HOME/.suit", see SuitPaths).
+    private let sessionsDirectory = SuitPaths.directory + "/sessions"
+    private let statusFile = SuitPaths.directory + "/claude-status.json"
 
-    private var directorySource: DispatchSourceFileSystemObject?
-    private var parentSource: DispatchSourceFileSystemObject?
-    private var reloadDebounce: DispatchWorkItem?
+    private var watcher: DirectoryWatcher?
 
     private init() {
         try? FileManager.default.createDirectory(atPath: sessionsDirectory, withIntermediateDirectories: true)
@@ -118,33 +112,13 @@ final class ClaudeSessionMonitor {
         }
     }
 
-    // Directory-level vnode watchers: session files are small and rewritten
-    // atomically (mv), so a .write event on the directory is the reliable signal.
+    // The sessions directory plus ~/.suit itself, where claude-status.json
+    // lives — one debounce for the pair, since the statusline script rewrites
+    // both in the same run (DirectoryWatcher).
     private func watch() {
-        directorySource = watchDirectory(sessionsDirectory)
-        // claude-status.json lives in ~/.suit itself.
-        parentSource = watchDirectory((statusFile as NSString).deletingLastPathComponent)
-    }
-
-    private func watchDirectory(_ path: String) -> DispatchSourceFileSystemObject? {
-        let fd = open(path, O_EVTONLY)
-        guard fd >= 0 else { return nil }
-        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: .write, queue: .main)
-        source.setEventHandler { [weak self] in
-            self?.scheduleReload()
-        }
-        source.setCancelHandler {
-            close(fd)
-        }
-        source.resume()
-        return source
-    }
-
-    private func scheduleReload() {
-        reloadDebounce?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.reload() }
-        reloadDebounce = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+        watcher = DirectoryWatcher(
+            paths: [sessionsDirectory, (statusFile as NSString).deletingLastPathComponent]
+        ) { [weak self] in self?.reload() }
     }
 
     // Re-reads every session file and the global usage snapshot. Called on
@@ -157,36 +131,17 @@ final class ClaudeSessionMonitor {
 
         for name in (try? fm.contentsOfDirectory(atPath: sessionsDirectory)) ?? [] where name.hasSuffix(".json") {
             let path = sessionsDirectory + "/" + name
-            guard let data = fm.contents(atPath: path),
-                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let id = object["session_id"] as? String else { continue }
+            guard let data = fm.contents(atPath: path), let session = Self.parseSession(data) else { continue }
 
-            let updatedAt = Date(timeIntervalSince1970: (object["updated_at"] as? Double) ?? 0)
-            if now.timeIntervalSince(updatedAt) > Self.pruneAge {
+            let age = now.timeIntervalSince(session.updatedAt)
+            if age > Self.pruneAge {
                 try? fm.removeItem(atPath: path)
                 continue
             }
-
-            let state = (object["state"] as? String).flatMap(ClaudeSessionState.init(rawValue:)) ?? .working
-            let age = now.timeIntervalSince(updatedAt)
-            if age > Self.maxAge || (state == .done && age > Self.maxDoneAge) {
+            if age > Self.maxAge || (session.state == .done && age > Self.maxDoneAge) {
                 continue
             }
-
-            loaded.append(ClaudeSession(
-                id: id,
-                state: state,
-                cwd: object["cwd"] as? String,
-                summary: object["summary"] as? String,
-                model: object["model"] as? String,
-                pid: (object["pid"] as? Int).map(pid_t.init),
-                updatedAt: updatedAt,
-                transcriptPath: object["transcript_path"] as? String,
-                sessionName: object["session_name"] as? String,
-                contextPct: (object["context_pct"] as? NSNumber)?.doubleValue,
-                costUSD: (object["cost_usd"] as? NSNumber)?.doubleValue,
-                permissionMode: ClaudeMode.fromRawMode(object["permission_mode"] as? String)
-            ))
+            loaded.append(session)
         }
 
         sessions = loaded.sorted {
@@ -194,6 +149,29 @@ final class ClaudeSessionMonitor {
         }
         usage = Self.readUsage(path: statusFile)
         NotificationCenter.default.post(name: Self.didUpdate, object: self)
+    }
+
+    // One session file (the JSON scripts/claude/suit-session-state.sh and the
+    // statusline merge) as a session. nil without a session_id; an unknown
+    // state reads as working, since a hook that wrote anything is a session
+    // doing something. Pure, so the harness feeds it JSON directly.
+    static func parseSession(_ data: Data) -> ClaudeSession? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let id = object["session_id"] as? String else { return nil }
+        return ClaudeSession(
+            id: id,
+            state: (object["state"] as? String).flatMap(ClaudeSessionState.init(rawValue:)) ?? .working,
+            cwd: object["cwd"] as? String,
+            summary: object["summary"] as? String,
+            model: object["model"] as? String,
+            pid: (object["pid"] as? Int).map(pid_t.init),
+            updatedAt: Date(timeIntervalSince1970: (object["updated_at"] as? Double) ?? 0),
+            transcriptPath: object["transcript_path"] as? String,
+            sessionName: object["session_name"] as? String,
+            contextPct: (object["context_pct"] as? NSNumber)?.doubleValue,
+            costUSD: (object["cost_usd"] as? NSNumber)?.doubleValue,
+            permissionMode: ClaudeMode.fromRawMode(object["permission_mode"] as? String)
+        )
     }
 
     private static func readUsage(path: String) -> ClaudeUsage? {
@@ -212,8 +190,13 @@ final class ClaudeSessionMonitor {
     }
 
     private static func parseUsage(path: String) -> ClaudeUsage? {
-        guard let data = FileManager.default.contents(atPath: path),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        FileManager.default.contents(atPath: path).flatMap(parseUsage(data:))
+    }
+
+    // The statusline's claude-status.json (Claude Code's own JSON, mirrored
+    // verbatim under rate_limits). Pure, so the harness feeds it directly.
+    static func parseUsage(data: Data) -> ClaudeUsage? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         let limits = object["rate_limits"] as? [String: Any]
         func pct(_ key: String) -> Double? {
             (limits?[key] as? [String: Any])?["used_percentage"] as? Double
@@ -269,7 +252,7 @@ final class ClaudeSessionAssigner {
 
     init(sessions: [ClaudeSession]) {
         self.sessions = sessions
-        self.parentMap = sessions.contains(where: { $0.pid != nil }) ? Self.processParentMap() : [:]
+        self.parentMap = sessions.contains(where: { $0.pid != nil }) ? processParentMap() : [:]
     }
 
     func session(forShellPid shellPid: pid_t, cwd: String?) -> ClaudeSession? {
@@ -302,26 +285,4 @@ final class ClaudeSessionAssigner {
         return false
     }
 
-    // One sysctl read of the whole process table → child pid → parent pid.
-    private static func processParentMap() -> [pid_t: pid_t] {
-        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
-        var size = 0
-        guard sysctl(&mib, 4, nil, &size, nil, 0) == 0, size > 0 else { return [:] }
-        // Headroom for processes spawned between the two calls.
-        size += size / 8
-        var buffer = [UInt8](repeating: 0, count: size)
-        guard sysctl(&mib, 4, &buffer, &size, nil, 0) == 0 else { return [:] }
-
-        let count = size / MemoryLayout<kinfo_proc>.stride
-        var map: [pid_t: pid_t] = [:]
-        map.reserveCapacity(count)
-        buffer.withUnsafeBytes { raw in
-            let procs = raw.bindMemory(to: kinfo_proc.self)
-            for i in 0..<count {
-                let proc = procs[i]
-                map[proc.kp_proc.p_pid] = proc.kp_eproc.e_ppid
-            }
-        }
-        return map
-    }
 }

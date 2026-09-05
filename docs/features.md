@@ -402,6 +402,8 @@ app does.
 - **Diff view** — `git diff HEAD` as a tab (⌃⌘D), unified or side-by-side with scroll-locked
   halves; review mode walks changed files with n/p and opens the file under review with o.
   A commit ref (from a blame sha or a File History row) opens that commit's per-file diff.
+  Every diff loads on a worker: the tab shows *Loading…* until git answers, so a large tree or
+  a slow disk never blocks the window, and **Refresh** swaps the new text in without a flash.
 - **Review comments → Claude** — in a diff, press `c` on a line to attach a review comment
   (GitHub-PR style); comments render inline in amber and collect into the pane's review draft.
   The header's **Review (N)** button lists them (edit / delete / open file), and **Send Review
@@ -411,7 +413,8 @@ app does.
   (hover it for the repo's branch/worktree counts); click the branch name to drop a switcher menu
   of the repo's
   **worktrees** (pick one to repoint the whole sidebar there) and **local branches** (pick one to
-  check it out). Picking a worktree also **walks the open terminals over** to it: every visible
+  check it out). The menu lists what the status monitor already knows — it refreshes on every
+  ref change, so the menu opens at once instead of running git on the click. Picking a worktree also **walks the open terminals over** to it: every visible
   shell sitting idle at a prompt inside the repo's worktree tree gets `cd`'d to the matching spot
   under the new worktree (same relative subpath when it exists there, otherwise the worktree root),
   so the terminal you're looking at actually lands on the new branch. Terminals mid-job (running
@@ -500,7 +503,8 @@ app does.
   in `~/.suit/markers.json`; the flag fills once a mark is set. **What Changed Since Mark**
   (⚑ menu or palette) then composes an aggregate diff across *all* the repo's worktrees — each
   worktree's commits, staged, unstaged, and newly-created files since the mark — into one review
-  set in the diff tab, walkable with the usual `n`/`p`/`o`/`c`. A summary header leads it:
+  set in the diff tab, walkable with the usual `n`/`p`/`o`/`c` (composed off the main thread; the
+  tab's title fills in the totals when it lands). A summary header leads it:
   files-touched and `+ins −del` per worktree, and which Claude session (matched by cwd) is
   working there, so the catch-up reads as "session X changed these 6 files". Worktrees created
   after the mark diff from their merge-base, so only their new work shows.
@@ -627,7 +631,8 @@ app does.
 ### Transcripts & history
 
 - **Transcripts** — open a live-tailing, read-only render of any session's transcript; file
-  paths in it are clickable like terminal links.
+  paths in it are clickable like terminal links. The window reuses one transcript tab, and pointing
+  it at another session (or a session whose transcript was recreated) clears it before refilling.
 - **Checkpoint timeline** — "Open Checkpoint Timeline…" shows a session's automatic pre-change
   checkpoints (the ones `/rewind` restores) as a read-only, live-tailing timeline, newest first:
   each node carries its timestamp, the prompt that triggered it, and the files it backed up.

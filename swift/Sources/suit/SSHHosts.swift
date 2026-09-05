@@ -46,11 +46,8 @@ final class SSHHostsStore {
 
     private(set) var hosts: [SSHHost] = []
 
-    // $HOME rather than NSHomeDirectory(), same as the other stores: an
-    // overridden $HOME sandboxes the file for harness runs.
     private var fileURL: URL {
-        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-        return URL(fileURLWithPath: home + "/.suit/ssh-hosts.json")
+        URL(fileURLWithPath: SuitPaths.directory + "/ssh-hosts.json")
     }
 
     private init() {

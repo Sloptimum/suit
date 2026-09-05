@@ -1,6 +1,6 @@
 import Foundation
 
-// Mode + plan-approval logic harness (ROADMAP Phase 26). Compiled by
+// Mode + plan-approval logic harness. Compiled by
 // scripts/mode-plan-harness.sh against the real ClaudeMode.swift and
 // PlanParsing.swift plus a tiny ClaudeSession stub, so the pure control logic
 // the phase rests on is asserted directly:

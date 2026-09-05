@@ -1,9 +1,9 @@
 #!/bin/bash
-# Background-task monitor test (ROADMAP Phase 30): compiles the UI-free core
+# Background-task monitor test: compiles the UI-free core
 # (swift/Sources/suit/BackgroundTasks.swift, Foundation-only, no app deps) with
 # scripts/background-tasks-test/main.swift and runs its assertions — the pure
 # status reconciliation, the strip-attention transition signal, the lsof port
-# parser, process-subtree membership, and the incremental log tail.
+# parser and process-subtree membership (the log tail is FileTailer's harness).
 #
 # It then exercises the real scripts/suit-bg.sh wrapper end-to-end: starts three
 # known background processes (one long-lived, one that exits clean, one that

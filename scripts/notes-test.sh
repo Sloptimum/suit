@@ -21,6 +21,7 @@ trap 'rm -f "$DRIVER"; rm -rf "$SCRATCH"' EXIT
 echo "==> Compiling notes logic test"
 if ! swiftc -O \
     "$ROOT/swift/Sources/suit/Notes.swift" \
+    "$ROOT/swift/Sources/suit/SuitPaths.swift" \
     "$ROOT/swift/Sources/suit/FileWatch.swift" \
     "$ROOT/swift/Sources/suit/FileWatcher.swift" \
     "$ROOT/scripts/notes-test/main.swift" \

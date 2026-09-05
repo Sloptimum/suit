@@ -503,18 +503,10 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     }
 
     private static func gitBranch(cwd: String) -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        process.arguments = ["-C", cwd, "symbolic-ref", "--short", "-q", "HEAD"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { return nil }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else { return nil }
-        let branch = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        return branch.isEmpty ? nil : branch
+        // A probe: a detached HEAD exits nonzero and is an ordinary answer.
+        let branch = runProcess(Git.executable, ["-C", cwd, "symbolic-ref", "--short", "-q", "HEAD"], probe: true)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return branch?.isEmpty == false ? branch : nil
     }
 
     // The union of every session repo's worktrees, deduped by path — the raw
@@ -548,40 +540,10 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
         return []
     }
 
-    // Parses `git worktree list --porcelain` into (path, branch?) entries. The
-    // porcelain form is blocks of `worktree <path>` / optional `branch
-    // refs/heads/<name>` / `detached`, separated by blank lines.
+    // `git worktree list --porcelain` as (path, branch?) entries.
     private static func listWorktrees(cwd: String) -> [SubagentTreeWorktree] {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        process.arguments = ["-C", cwd, "worktree", "list", "--porcelain"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { return [] }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else { return [] }
-        let text = String(decoding: data, as: UTF8.self)
-
-        var result: [SubagentTreeWorktree] = []
-        var path: String?
-        var branch: String?
-        func flush() {
-            if let path { result.append(SubagentTreeWorktree(path: path, branch: branch)) }
-            path = nil
-            branch = nil
-        }
-        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
-            if line.hasPrefix("worktree ") {
-                flush()
-                path = String(line.dropFirst("worktree ".count))
-            } else if line.hasPrefix("branch refs/heads/") {
-                branch = String(line.dropFirst("branch refs/heads/".count))
-            }
-        }
-        flush()
-        return result
+        guard let text = runProcess(Git.executable, ["-C", cwd, "worktree", "list", "--porcelain"]) else { return [] }
+        return WorktreeSwitcher.parseWorktrees(text).map { SubagentTreeWorktree(path: $0.path, branch: $0.branch) }
     }
 
     // MARK: - Layout mode

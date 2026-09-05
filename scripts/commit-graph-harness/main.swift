@@ -1,6 +1,6 @@
 import Foundation
 
-// Assertion driver for the Phase 34 commit-graph layout. Reads the git log
+// Assertion driver for the commit-graph layout. Reads the git log
 // output of the fixture repo (built by commit-graph-harness.sh) from the path
 // in argv[1], runs the real CommitGraph.parse + layout, and asserts the lanes,
 // edges, and ref badges for a history with a fork and a merge. OBSERVE lines +

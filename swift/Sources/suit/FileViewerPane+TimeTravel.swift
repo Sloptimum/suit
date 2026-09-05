@@ -85,14 +85,14 @@ extension FileViewerPaneContent {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let text: String
             if let showArgs {
-                text = runProcess("/usr/bin/git", ["-C", root] + showArgs)
+                text = runProcess(Git.executable, ["-C", root] + showArgs)
                     ?? "(this file did not exist at this revision)"
             } else {
                 // Working tree: the on-disk file (rightmost stop).
                 text = (try? String(contentsOfFile: filePath, encoding: .utf8)) ?? ""
             }
             var changed = IndexSet()
-            if let diffArgs, let diff = runProcess("/usr/bin/git", ["-C", root] + diffArgs) {
+            if let diffArgs, let diff = runProcess(Git.executable, ["-C", root] + diffArgs) {
                 changed = TimeTravelDiff.changedNewLines(inDiff: diff)
             }
             DispatchQueue.main.async {

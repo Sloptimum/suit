@@ -5,34 +5,17 @@ import Foundation
 // ahead/behind vs upstream, which worktree (if any) has them checked out, and
 // whether that worktree is dirty — all from plumbing git, off the main thread.
 // `GitHubCLI` layers optional `gh` actions on top (PR status, create, open on
-// web), degrading to a no-op when `gh` isn't installed.
-
-// One local branch, as the Git tab lists it.
-struct GitBranchInfo {
-    let name: String
-    let upstream: String?        // "origin/foo" or nil when no upstream is set
-    let ahead: Int               // commits on this branch not on its upstream
-    let behind: Int              // commits on its upstream not on this branch
-    let isCurrent: Bool          // the shown root's checked-out branch
-    let worktreePath: String?    // the worktree this branch is checked out in
-    let isDirty: Bool            // that worktree has uncommitted changes
-    let remote: GitBranchOps.RemoteState  // published / local-only / upstream gone
-
-    // git will only delete a branch no worktree holds — the checked-out one
-    // included (the shown root is itself a worktree, so `isCurrent` is implied
-    // by `worktreePath`, but say both: a detached-HEAD root leaves neither set).
-    var isDeletable: Bool { !isCurrent && worktreePath == nil }
-}
+// web), degrading to a no-op when `gh` isn't installed. This file spawns; the
+// reading of what git and gh print is GitOutputParsing, which has a harness.
 
 enum GitBranchList {
-    private static let git = "/usr/bin/git"
 
     // The repo's local branches, current first, then alphabetical. Ahead/behind
     // come from `%(upstream:track)` in one for-each-ref pass rather than a
     // rev-list per branch; dirtiness is one `git status` per *worktree* (few),
     // cached so branches sharing a worktree don't re-run it.
     static func compute(root: String, currentBranch: String?) -> [GitBranchInfo] {
-        guard let output = runProcess(git, [
+        guard let output = runProcess(Git.executable, [
             "-C", root, "for-each-ref",
             "--format=%(refname:short)%09%(upstream:short)%09%(upstream:track,nobracket)",
             "refs/heads",
@@ -41,41 +24,14 @@ enum GitBranchList {
         let worktrees = worktreeBranchMap(root: root)
         let remotes = remoteRefs(root: root)
         var dirtyByPath: [String: Bool] = [:]
-        var result: [GitBranchInfo] = []
-        for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
-            let cols = line.components(separatedBy: "\t")
-            guard let name = cols.first, !name.isEmpty else { continue }
-            let upstream = cols.count > 1 && !cols[1].isEmpty ? cols[1] : nil
-            let (ahead, behind) = parseTrack(cols.count > 2 ? cols[2] : "")
-            let worktreePath = worktrees[name]
-            var dirty = false
-            if let worktreePath {
-                if let cached = dirtyByPath[worktreePath] {
-                    dirty = cached
-                } else {
-                    dirty = WorktreeTasks.hasUncommittedChanges(worktreePath)
-                    dirtyByPath[worktreePath] = dirty
-                }
-            }
-            result.append(GitBranchInfo(
-                name: name, upstream: upstream, ahead: ahead, behind: behind,
-                isCurrent: name == currentBranch, worktreePath: worktreePath, isDirty: dirty,
-                remote: GitBranchOps.remoteState(branch: name, upstream: upstream, remoteRefs: remotes)
-            ))
+        return GitOutputParsing.branchListing(
+            output, currentBranch: currentBranch, worktreeByBranch: worktrees, remoteRefs: remotes
+        ) { path in
+            if let cached = dirtyByPath[path] { return cached }
+            let dirty = WorktreeTasks.hasUncommittedChanges(path)
+            dirtyByPath[path] = dirty
+            return dirty
         }
-        result.sort { a, b in
-            if a.isCurrent != b.isCurrent { return a.isCurrent }
-            return a.name.localizedStandardCompare(b.name) == .orderedAscending
-        }
-        return result
-    }
-
-    // "ahead 2, behind 1" / "ahead 3" / "behind 2" / "gone" / "" → counts.
-    // The parse itself lives in the harness-tested GitBranchOps, which the
-    // Files-tab branch row reads the same field through.
-    private static func parseTrack(_ track: String) -> (ahead: Int, behind: Int) {
-        let parsed = GitBranchOps.parseTrack(track)
-        return (parsed.ahead, parsed.behind)
     }
 
     // Every remote-tracking ref in short form ("origin/main"), from the same
@@ -83,54 +39,23 @@ enum GitBranchList {
     // the remote — refs go stale until the next `fetch --prune`, exactly as
     // git's own "gone" marker does.
     private static func remoteRefs(root: String) -> Set<String> {
-        guard let output = runProcess(git, [
+        guard let output = runProcess(Git.executable, [
             "-C", root, "for-each-ref", "--format=%(refname:short)", "refs/remotes",
         ]) else { return [] }
         return Set(output.split(separator: "\n", omittingEmptySubsequences: true).map(String.init))
     }
 
     // branch name → the worktree path it's checked out in, from
-    // `git worktree list --porcelain` (blocks of "worktree <path>" then
-    // "branch refs/heads/<name>").
+    // `git worktree list --porcelain` (WorktreeSwitcher parses it).
     private static func worktreeBranchMap(root: String) -> [String: String] {
-        guard let output = runProcess(git, ["-C", root, "worktree", "list", "--porcelain"]) else {
+        guard let output = runProcess(Git.executable, ["-C", root, "worktree", "list", "--porcelain"]) else {
             return [:]
         }
-        var map: [String: String] = [:]
-        var currentPath: String?
-        for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
-            if line.hasPrefix("worktree ") {
-                currentPath = String(line.dropFirst("worktree ".count))
-            } else if line.hasPrefix("branch refs/heads/"), let path = currentPath {
-                map[String(line.dropFirst("branch refs/heads/".count))] = path
-            }
-        }
-        return map
+        return Dictionary(
+            WorktreeSwitcher.parseWorktrees(output).compactMap { entry in entry.branch.map { ($0, entry.path) } },
+            uniquingKeysWith: { first, _ in first }
+        )
     }
-}
-
-// A pull request for a branch, from `gh pr list`.
-struct GitPRInfo {
-    enum State: String {
-        case open = "OPEN"
-        case merged = "MERGED"
-        case closed = "CLOSED"
-    }
-    enum Checks {
-        case passing, failing, pending
-    }
-    let number: Int
-    let state: State
-    let url: String
-    let checks: Checks?
-}
-
-// One PR's detail from `gh pr view` (see GitHubCLI.prState): its state plus
-// the merge timestamp and body.
-struct GitPRDetail {
-    let state: GitPRInfo.State
-    let mergedAt: Date?
-    let body: String
 }
 
 // The optional GitHub layer. Every entry point is a no-op / graceful failure
@@ -169,46 +94,9 @@ enum GitHubCLI {
                   "pr", "list", "--state", "all", "--limit", "100",
                   "--json", "number,headRefName,state,url,statusCheckRollup",
               ]),
-              let data = output.data(using: .utf8),
-              let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+              let data = output.data(using: .utf8)
         else { return [:] }
-
-        var result: [String: GitPRInfo] = [:]
-        for entry in array {
-            guard let branch = entry["headRefName"] as? String,
-                  let number = entry["number"] as? Int,
-                  let stateRaw = entry["state"] as? String,
-                  let state = GitPRInfo.State(rawValue: stateRaw),
-                  let url = entry["url"] as? String
-            else { continue }
-            let checks = summarizeChecks(entry["statusCheckRollup"] as? [[String: Any]])
-            let pr = GitPRInfo(number: number, state: state, url: url, checks: checks)
-            // Prefer an open PR over a stale merged/closed one for the branch.
-            if let existing = result[branch], existing.state == .open, state != .open { continue }
-            result[branch] = pr
-        }
-        return result
-    }
-
-    // statusCheckRollup mixes CheckRun (status/conclusion) and StatusContext
-    // (state) entries; collapse to one traffic light.
-    private static func summarizeChecks(_ rollup: [[String: Any]]?) -> GitPRInfo.Checks? {
-        guard let rollup, !rollup.isEmpty else { return nil }
-        var anyPending = false
-        for check in rollup {
-            let conclusion = (check["conclusion"] as? String)?.uppercased() ?? ""
-            let state = (check["state"] as? String)?.uppercased() ?? ""
-            let status = (check["status"] as? String)?.uppercased() ?? ""
-            if ["FAILURE", "TIMED_OUT", "CANCELLED", "ERROR", "ACTION_REQUIRED"].contains(conclusion)
-                || ["FAILURE", "ERROR"].contains(state) {
-                return .failing
-            }
-            if (status != "COMPLETED" && !status.isEmpty) || state == "PENDING"
-                || (conclusion.isEmpty && state.isEmpty && status.isEmpty) {
-                anyPending = true
-            }
-        }
-        return anyPending ? .pending : .passing
+        return GitOutputParsing.pullRequests(json: data)
     }
 
     // The repo's default branch ("main"/"master"), from origin/HEAD when set.
@@ -216,13 +104,13 @@ enum GitHubCLI {
         // Both of these are probes — an unset origin/HEAD and a repo with no
         // `main` are ordinary answers, so they don't log as failures.
         if let head = runProcess(
-            "/usr/bin/git", ["-C", root, "symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"],
+            Git.executable, ["-C", root, "symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"],
             probe: true
         )?.trimmingCharacters(in: .whitespacesAndNewlines), !head.isEmpty {
             return (head as NSString).lastPathComponent
         }
         for candidate in ["main", "master"] {
-            if runProcess("/usr/bin/git", ["-C", root, "rev-parse", "--verify", "-q", candidate], probe: true) != nil {
+            if runProcess(Git.executable, ["-C", root, "rev-parse", "--verify", "-q", candidate], probe: true) != nil {
                 return candidate
             }
         }
@@ -233,7 +121,7 @@ enum GitHubCLI {
     // default branch, one bullet each (empty when the base can't be resolved).
     static func commitBody(root: String, branch: String) -> String {
         guard let base = defaultBranch(root: root), base != branch,
-              let log = runProcess("/usr/bin/git", ["-C", root, "log", "--format=%s", "\(base)..\(branch)"])
+              let log = runProcess(Git.executable, ["-C", root, "log", "--format=%s", "\(base)..\(branch)"])
         else { return "" }
         let subjects = log.split(separator: "\n", omittingEmptySubsequences: true).map { "- \($0)" }
         return subjects.joined(separator: "\n")
@@ -247,8 +135,7 @@ enum GitHubCLI {
         let result = run(gh, cwd: root, ["pr", "create", "--head", branch, "--title", title, "--body", body])
         switch result {
         case .success(let out):
-            let url = out.split(separator: "\n", omittingEmptySubsequences: true).last.map(String.init) ?? ""
-            return .success(url.trimmingCharacters(in: .whitespaces))
+            return .success(GitOutputParsing.createdPRURL(from: out))
         case .failure(let error):
             return .failure(error)
         }
@@ -274,17 +161,9 @@ enum GitHubCLI {
             return .failure(error)
         case .success(let output):
             guard let data = output.data(using: .utf8),
-                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let stateRaw = object["state"] as? String,
-                  let state = GitPRInfo.State(rawValue: stateRaw)
+                  let detail = GitOutputParsing.prDetail(json: data)
             else { return .failure(WorktreeTaskError(message: "Couldn’t parse gh pr view output.")) }
-            var mergedAt: Date?
-            if let mergedRaw = object["mergedAt"] as? String {
-                mergedAt = ISO8601DateFormatter().date(from: mergedRaw)
-            }
-            return .success(GitPRDetail(
-                state: state, mergedAt: mergedAt, body: object["body"] as? String ?? ""
-            ))
+            return .success(detail)
         }
     }
 
@@ -322,20 +201,10 @@ enum GitHubCLI {
                   "--json", "databaseId,conclusion",
               ]),
               let data = listing.data(using: .utf8),
-              let runs = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
-        else { return "" }
-        let failedId = runs.first(where: {
-            let conclusion = ($0["conclusion"] as? String)?.uppercased() ?? ""
-            return ["FAILURE", "TIMED_OUT", "CANCELLED", "STARTUP_FAILURE"].contains(conclusion)
-        })?["databaseId"] as? Int
-        guard let failedId,
+              let failedId = GitOutputParsing.newestFailedRunId(json: data),
               case .success(let log) = run(gh, cwd: root, ["run", "view", "\(failedId)", "--log-failed"])
         else { return "" }
-        let trimmed = log.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.utf8.count <= maxBytes { return trimmed }
-        // Keep the tail — the failure message is at the end of a build log.
-        let tail = String(decoding: Array(trimmed.utf8.suffix(maxBytes)), as: UTF8.self)
-        return "…(truncated)\n" + tail
+        return GitOutputParsing.cappedRunLog(log, maxBytes: maxBytes)
     }
 
     // Whether gh has credentials for the repo's host (`gh auth status` exits 0).
@@ -399,53 +268,18 @@ enum GitHubCLI {
 
     // gh with stdout/stderr captured; stderr's first line is the error message.
     // gh has no `-C` flag (that's a git-ism) — it's pointed at a repo by its
-    // working directory instead.
+    // working directory instead, which is also what the ops-log row names,
+    // since argv carries no repo.
     private static func run(_ executable: String, cwd: String, _ arguments: [String]) -> Result<String, WorktreeTaskError> {
-        let derived = OpsLabel.derive(executable: executable, arguments: arguments)
-        let watch = OpsStopwatch()
-        let result = spawn(executable, cwd: cwd, arguments)
-        OpsLog.shared.record(
-            kind: derived.kind, label: derived.label,
-            // gh has no -C, so argv carries no repo — the cwd is what says
-            // which checkout the call was about.
-            detail: derived.detail ?? (cwd as NSString).lastPathComponent,
-            trigger: OpsLog.currentTrigger,
-            startedAt: watch.startedAt, duration: watch.elapsed,
-            outcome: {
-                switch result {
-                case .success(let output): return output.isEmpty ? .empty : .ok
-                case .failure: return .failed
-                }
-            }()
-        )
-        return result
-    }
-
-    // The uninstrumented spawn — see runProcess in FileIndex.swift for why the
-    // timing wrapper sits above rather than inside.
-    private static func spawn(_ executable: String, cwd: String, _ arguments: [String]) -> Result<String, WorktreeTaskError> {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
-        process.currentDirectoryURL = URL(fileURLWithPath: cwd)
-        let stdout = Pipe(), stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
-        // gh reads config/creds relative to $HOME; keep the inherited env.
+        let result: ProcessResult
         do {
-            try process.run()
+            result = try runProcessCapturing(
+                executable, arguments, cwd: cwd, detail: (cwd as NSString).lastPathComponent
+            )
         } catch {
             return .failure(WorktreeTaskError(message: error.localizedDescription))
         }
-        let outData = stdout.fileHandleForReading.readDataToEndOfFile()
-        let errData = stderr.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        if process.terminationStatus == 0 {
-            return .success(String(decoding: outData, as: UTF8.self))
-        }
-        let message = String(decoding: errData, as: UTF8.self)
-            .split(separator: "\n").first.map(String.init)
-            ?? "gh exited \(process.terminationStatus)"
-        return .failure(WorktreeTaskError(message: message.trimmingCharacters(in: .whitespaces)))
+        if result.succeeded { return .success(result.stdout) }
+        return .failure(WorktreeTaskError(message: result.firstStderrLine ?? "gh exited \(result.status)"))
     }
 }

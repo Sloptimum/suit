@@ -3,10 +3,9 @@ import Foundation
 // Watches one file path and calls back on the main thread when it changes —
 // the Cocoa half of FileWatch.swift, which owns the decisions this executes.
 //
-// The DispatchSource pattern is the one TranscriptPane+Tail and
-// CheckpointTimeline already use, generalised so the four file-backed panes
-// (viewer, markdown, image, PDF) share one implementation instead of a fourth
-// copy. Two things it does that a naive watcher doesn't:
+// The DispatchSource pattern the file-backed panes (viewer, markdown, image,
+// PDF) share instead of each keeping a copy; FileTailer is its sibling for a
+// file that grows. Two things it does that a naive watcher doesn't:
 //
 //  * **Re-opens the path after an atomic replace.** O_EVTONLY watches an inode,
 //    not a name. Data.write(.atomic), git and most editors rename a temp file

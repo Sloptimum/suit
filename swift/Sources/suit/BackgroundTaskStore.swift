@@ -15,11 +15,8 @@ final class BackgroundTaskStore {
     static let shared = BackgroundTaskStore()
     static let didUpdate = Notification.Name("BackgroundTaskStoreDidUpdate")
 
-    // $HOME first (not NSHomeDirectory()), same as ClaudeSessionMonitor /
-    // ClaudeIntegration: the suit-bg wrapper writes to "$HOME/.suit/tasks", and
-    // an overridden $HOME sandboxes both sides for harness runs.
-    static let tasksDirectory =
-        (ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()) + "/.suit/tasks"
+    // Where the suit-bg wrapper drops its records ("$HOME/.suit/tasks").
+    static var tasksDirectory: String { SuitPaths.directory + "/tasks" }
 
     // Finished records are dropped this long after their process last mattered,
     // so the directory doesn't grow without bound.
@@ -28,8 +25,7 @@ final class BackgroundTaskStore {
     private(set) var tasks: [BackgroundTask] = []
 
     private let probeQueue = DispatchQueue(label: "dev.kosych.suit.bgtasks")
-    private var directorySource: DispatchSourceFileSystemObject?
-    private var reloadDebounce: DispatchWorkItem?
+    private var watcher: DirectoryWatcher?
     // Cache of the last live port probe per pid, so a settled server isn't
     // re-lsof'd on every 3 s refresh (probing is a subprocess spawn).
     private var portCache: [Int32: Int?] = [:]
@@ -41,20 +37,7 @@ final class BackgroundTaskStore {
     }
 
     private func watch() {
-        let fd = open(Self.tasksDirectory, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: .write, queue: .main)
-        source.setEventHandler { [weak self] in self?.scheduleReload() }
-        source.setCancelHandler { close(fd) }
-        source.resume()
-        directorySource = source
-    }
-
-    private func scheduleReload() {
-        reloadDebounce?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.reload() }
-        reloadDebounce = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+        watcher = DirectoryWatcher(paths: [Self.tasksDirectory]) { [weak self] in self?.reload() }
     }
 
     // Re-reads every record and reconciles it against live process state.
@@ -120,7 +103,7 @@ final class BackgroundTaskStore {
     // against a fresh sysctl parent map each call (process trees move).
     func tasks(underShell shellPid: Int32) -> [BackgroundTask] {
         guard shellPid > 0 else { return tasks }
-        let parentMap = Self.processParentMap()
+        let parentMap = processParentMap()
         return tasks.filter { task in
             // The task's own pid subtree first (the backgrounded job is a
             // descendant of the pane's shell while it lives); the record's
@@ -160,68 +143,24 @@ final class BackgroundTaskStore {
         return errno == EPERM
     }
 
-    // One sysctl read of the whole process table → child pid → parent pid,
-    // mirroring ClaudeSessionAssigner.processParentMap.
-    static func processParentMap() -> [Int32: Int32] {
-        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
-        var size = 0
-        guard sysctl(&mib, 4, nil, &size, nil, 0) == 0, size > 0 else { return [:] }
-        size += size / 8
-        var buffer = [UInt8](repeating: 0, count: size)
-        guard sysctl(&mib, 4, &buffer, &size, nil, 0) == 0 else { return [:] }
-        let count = size / MemoryLayout<kinfo_proc>.stride
-        var map: [Int32: Int32] = [:]
-        map.reserveCapacity(count)
-        buffer.withUnsafeBytes { raw in
-            let procs = raw.bindMemory(to: kinfo_proc.self)
-            for i in 0..<count {
-                let proc = procs[i]
-                map[proc.kp_proc.p_pid] = proc.kp_eproc.e_ppid
-            }
-        }
-        return map
-    }
 
     // The listening TCP port a pid is bound to, via lsof — parsed by the pure
     // BackgroundTasks.parseListeningPort. nil when lsof is absent or the process
-    // isn't listening.
+    // isn't listening. Instrumented like the rest of Suit's unbidden work: this
+    // runs on the monitor's reconcile pass, once per tracked task, and a
+    // stalled `lsof` (a hung NFS mount is the classic) is invisible without a
+    // row saying so. lsof exits 1 when nothing matches, which for "is it
+    // listening?" is the answer no — a probe, not a failure.
     private static func listeningPort(ofPid pid: Int32) -> Int? {
-        guard let output = runLsof(["-nP", "-p", "\(pid)", "-iTCP", "-sTCP:LISTEN"]) else { return nil }
-        return BackgroundTasks.parseListeningPort(lsof: output)
-    }
-
-    // Instrumented like the rest of Suit's unbidden work: this runs on the
-    // monitor's reconcile pass, once per tracked task, and a stalled `lsof`
-    // (a hung NFS mount is the classic) is invisible without a row saying so.
-    private static func runLsof(_ args: [String]) -> String? {
-        let watch = OpsStopwatch()
-        let output = spawnLsof(args)
-        OpsLog.shared.record(
-            kind: .process, label: "lsof",
-            detail: args.firstIndex(of: "-p").flatMap { args.indices.contains($0 + 1) ? "pid \(args[$0 + 1])" : nil },
-            trigger: "task monitor",
-            startedAt: watch.startedAt, duration: watch.elapsed,
-            outcome: output.map { $0.isEmpty ? .empty : .ok } ?? .failed
-        )
-        return output
-    }
-
-    private static func spawnLsof(_ args: [String]) -> String? {
         let candidates = ["/usr/sbin/lsof", "/usr/bin/lsof"]
-        guard let path = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { return nil }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = args
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        do {
-            try process.run()
-        } catch {
-            return nil
-        }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return String(data: data, encoding: .utf8)
+        guard let lsof = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { return nil }
+        guard let output = runProcess(
+            // -a ANDs the selectors; without it lsof ORs them and lists every
+            // listener on the machine, and another process's port became
+            // this task's.
+            lsof, ["-nP", "-a", "-p", "\(pid)", "-iTCP", "-sTCP:LISTEN"],
+            trigger: "task monitor", probe: true, detail: "pid \(pid)"
+        ) else { return nil }
+        return BackgroundTasks.parseListeningPort(lsof: output)
     }
 }

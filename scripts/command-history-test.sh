@@ -1,5 +1,5 @@
 #!/bin/bash
-# Command-history logic test (ROADMAP Phase 43): compiles the UI-free core
+# Command-history logic test: compiles the UI-free core
 # (swift/Sources/suit/CommandHistory.swift + FuzzyMatch.swift, Foundation-only,
 # no app deps) with scripts/command-history-test/main.swift and runs its
 # assertions — zsh-history parse/dedup (most-recent-first), the fuzzy ranking

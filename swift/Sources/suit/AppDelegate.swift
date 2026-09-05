@@ -313,12 +313,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         SavedAppState(windows: windowControllers.map { $0.captureState() }).save()
         guard let pane = activeWindowController()?.focusedPane(),
               let cwd = pane.workingDirectory else { return }
-        UserDefaults.standard.set(cwd, forKey: "lastWorkingDirectory")
+        UserDefaults.standard.set(cwd, forKey: DefaultsKey.lastWorkingDirectory)
     }
 
     func savedWorkingDirectory() -> String {
         let defaults = UserDefaults.standard
-        if let saved = defaults.string(forKey: "lastWorkingDirectory"),
+        if let saved = defaults.string(forKey: DefaultsKey.lastWorkingDirectory),
            FileManager.default.fileExists(atPath: saved) {
             return saved
         }

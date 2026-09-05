@@ -1,5 +1,5 @@
 #!/bin/bash
-# PR-review logic test (ROADMAP Phase 39): compiles the UI-free cores
+# PR-review logic test: compiles the UI-free cores
 # (swift/Sources/suit/PRReview.swift + DiffReview.swift, both Foundation-only,
 # no app deps) with scripts/pr-review-test/main.swift and runs its assertions —
 # the `gh pr list` JSON parse (fields / author.login / dedup / newest-first /

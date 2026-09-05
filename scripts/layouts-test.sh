@@ -1,5 +1,5 @@
 #!/bin/bash
-# Saved-layouts logic test (ROADMAP Phase 41): compiles the UI-free layout core
+# Saved-layouts logic test: compiles the UI-free layout core
 # (swift/Sources/suit/Layouts.swift) together with the state-restoration shapes
 # it snapshots (StateRestoration.swift + DiffReview.swift, both needed for
 # SavedWindow/SavedTab and its Codable review comments) and
@@ -25,6 +25,8 @@ trap 'rm -f "$DRIVER"; rm -rf "$SCRATCH"' EXIT
 echo "==> Compiling saved-layouts logic test"
 if ! swiftc -O \
     "$ROOT/swift/Sources/suit/Layouts.swift" \
+    "$ROOT/swift/Sources/suit/SuitPaths.swift" \
+    "$ROOT/swift/Sources/suit/StoreFile.swift" \
     "$ROOT/swift/Sources/suit/StateRestoration.swift" \
     "$ROOT/swift/Sources/suit/DiffReview.swift" \
     "$ROOT/scripts/layouts-test/main.swift" \

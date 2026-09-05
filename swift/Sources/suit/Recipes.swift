@@ -180,10 +180,7 @@ final class RecipesStore {
 
     private(set) var recipes: [Recipe] = []
 
-    var directory: String {
-        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-        return home + "/.suit/recipes"
-    }
+    var directory: String { SuitPaths.directory + "/recipes" }
 
     init() {
         reload()

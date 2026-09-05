@@ -25,11 +25,8 @@ final class FavoritesStore {
 
     private var model = Model()
 
-    // $HOME rather than NSHomeDirectory() so tests/harnesses can point the
-    // store at a scratch home (same reasoning as ClaudeIntegration).
     private var fileURL: URL {
-        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-        return URL(fileURLWithPath: home + "/.suit/favorites.json")
+        URL(fileURLWithPath: SuitPaths.directory + "/favorites.json")
     }
 
     private init() {
@@ -44,8 +41,7 @@ final class FavoritesStore {
 
     func noteRecentFolder(_ path: String) {
         // A shell parked in the home directory isn't a project.
-        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-        if path == home { return }
+        if path == SuitPaths.home { return }
         var folders = model.recentFolders ?? []
         if folders.first?.path == path { return }
         folders.removeAll { $0.path == path }

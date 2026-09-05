@@ -11,7 +11,7 @@ extension GitView {
         let menu = NSMenu()
 
         menu.addItem(Self.headerItem("Worktrees"))
-        for worktree in WorktreeSwitcher.worktrees(root: root) {
+        for worktree in monitor?.worktrees ?? [] {
             let name = (worktree.path as NSString).lastPathComponent
             let item = menu.addItem(
                 withTitle: "\(name) — \(worktree.branch ?? "detached")",
@@ -27,7 +27,7 @@ extension GitView {
         menu.addItem(.separator())
         menu.addItem(Self.headerItem("Branches"))
         let current = monitor?.currentBranch
-        for branch in WorktreeSwitcher.branches(root: root) {
+        for branch in monitor?.branches ?? [] {
             let item = menu.addItem(withTitle: branch, action: #selector(checkoutBranchItem(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = branch

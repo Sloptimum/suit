@@ -1,5 +1,5 @@
 #!/bin/bash
-# File time-travel scrubber logic test (ROADMAP Phase 40): builds a throwaway
+# File time-travel scrubber logic test: builds a throwaway
 # fixture git repo with a file whose lines change across three commits plus an
 # uncommitted working-tree edit, captures `git log --follow` in GitFileHistory's
 # format, then compiles the real (Foundation-only) FileTimeTravel.swift against

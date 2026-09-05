@@ -379,14 +379,14 @@ final class FileBrowserView: NSView, NSOutlineViewDataSource, NSOutlineViewDeleg
             header.updateBranch(
                 root: gitMonitor.root,
                 branch: gitMonitor.currentBranch,
-                branches: gitMonitor.branchCount,
-                worktrees: gitMonitor.worktreeCount,
+                branches: gitMonitor.branches,
+                worktrees: gitMonitor.worktrees,
                 sync: gitMonitor.sync,
                 hasLocalChanges: gitMonitor.hasLocalChanges,
                 stashCount: gitMonitor.stashCount
             )
         } else {
-            header.updateBranch(root: nil, branch: nil, branches: 0, worktrees: 0)
+            header.updateBranch(root: nil, branch: nil)
         }
         layoutContents()
     }

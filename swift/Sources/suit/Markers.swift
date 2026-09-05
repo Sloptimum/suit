@@ -43,11 +43,8 @@ final class MarkerStore {
 
     private var model = Model()
 
-    // $HOME rather than NSHomeDirectory() so tests/harnesses can point the
-    // store at a scratch home (same reasoning as FavoritesStore/Notes).
     private var fileURL: URL {
-        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-        return URL(fileURLWithPath: home + "/.suit/markers.json")
+        URL(fileURLWithPath: SuitPaths.directory + "/markers.json")
     }
 
     private init() {
@@ -84,12 +81,6 @@ final class MarkerStore {
 // without an app (see the scratch tests): the pure functions take strings, the
 // git-touching ones shell out via `runProcess`.
 enum MarkerCatchUp {
-    struct WorktreeInfo {
-        let path: String
-        let branch: String?
-        let head: String
-    }
-
     // Per-worktree line of the catch-up summary header.
     struct WorktreeSummary {
         let name: String        // "slug (task/slug)"
@@ -119,14 +110,16 @@ enum MarkerCatchUp {
 
     // `git worktree list --porcelain`: blocks of "worktree <path>" / "HEAD <sha>"
     // / "branch refs/heads/<name>" separated by blank lines.
-    static func worktrees(mainRoot: String) -> [WorktreeInfo] {
-        parseWorktrees(runProcess("/usr/bin/git", ["-C", mainRoot, "worktree", "list", "--porcelain"]) ?? "")
+    static func worktrees(mainRoot: String) -> [WorktreeEntry] {
+        WorktreeSwitcher.parseWorktrees(
+            runProcess(Git.executable, ["-C", mainRoot, "worktree", "list", "--porcelain"]) ?? ""
+        )
     }
 
     // Records the current state of every worktree as a marker.
     static func mark(mainRoot: String) -> MarkerStore.Marker {
         let marks = worktrees(mainRoot: mainRoot).map {
-            MarkerStore.WorktreeMark(path: $0.path, branch: $0.branch, sha: $0.head)
+            MarkerStore.WorktreeMark(path: $0.path, branch: $0.branch, sha: $0.head ?? "")
         }
         return MarkerStore.Marker(at: Date().timeIntervalSince1970, worktrees: marks)
     }
@@ -147,15 +140,15 @@ enum MarkerCatchUp {
         for wt in worktrees(mainRoot: mainRoot) {
             guard let base = baseSha(for: wt, markSha: markSha, mainMarkSha: mainMarkSha) else { continue }
             // Tracked changes since the base: commits + staged + unstaged.
-            let tracked = runProcess("/usr/bin/git", ["-C", wt.path, "diff", base]) ?? ""
-            var stat = parseNumstat(runProcess("/usr/bin/git", ["-C", wt.path, "diff", "--numstat", base]) ?? "")
+            let tracked = runProcess(Git.executable, ["-C", wt.path, "diff", base]) ?? ""
+            var stat = parseNumstat(runProcess(Git.executable, ["-C", wt.path, "diff", "--numstat", base]) ?? "")
 
             // Untracked files: `git diff` omits them, but a file Claude just
             // created is exactly "what moved" while you were away. Each is
             // diffed against /dev/null so it renders as a whole-file addition.
             var untracked = ""
             for rel in untrackedFiles(root: wt.path) {
-                let addition = runProcess("/usr/bin/git", ["-C", wt.path, "diff", "--no-index", "--", "/dev/null", rel]) ?? ""
+                let addition = runProcess(Git.executable, ["-C", wt.path, "diff", "--no-index", "--", "/dev/null", rel]) ?? ""
                 guard !addition.isEmpty else { continue }
                 untracked += addition
                 stat.files += 1
@@ -191,10 +184,10 @@ enum MarkerCatchUp {
     // The base a worktree is diffed against: its own marked sha, else — for a
     // worktree created since the mark — the merge-base with the marked main sha
     // (so only its new work shows, not the whole shared history).
-    private static func baseSha(for wt: WorktreeInfo, markSha: [String: String], mainMarkSha: String?) -> String? {
+    private static func baseSha(for wt: WorktreeEntry, markSha: [String: String], mainMarkSha: String?) -> String? {
         if let sha = markSha[wt.path], !sha.isEmpty { return sha }
         guard let mainMarkSha, !mainMarkSha.isEmpty else { return nil }
-        if let mb = runProcess("/usr/bin/git", ["-C", wt.path, "merge-base", mainMarkSha, "HEAD"])?
+        if let mb = runProcess(Git.executable, ["-C", wt.path, "merge-base", mainMarkSha, "HEAD"])?
             .trimmingCharacters(in: .whitespacesAndNewlines), !mb.isEmpty {
             return mb
         }
@@ -203,33 +196,10 @@ enum MarkerCatchUp {
 
     // MARK: - Pure parsing / transforms (tested standalone)
 
-    static func parseWorktrees(_ porcelain: String) -> [WorktreeInfo] {
-        var result: [WorktreeInfo] = []
-        var path: String?
-        var head: String?
-        var branch: String?
-        func flush() {
-            if let path { result.append(WorktreeInfo(path: path, branch: branch, head: head ?? "")) }
-            path = nil; head = nil; branch = nil
-        }
-        for raw in porcelain.split(separator: "\n", omittingEmptySubsequences: true) {
-            let line = String(raw)
-            if line.hasPrefix("worktree ") {
-                flush()
-                path = String(line.dropFirst("worktree ".count))
-            } else if line.hasPrefix("HEAD ") {
-                head = String(line.dropFirst("HEAD ".count))
-            } else if line.hasPrefix("branch refs/heads/") {
-                branch = String(line.dropFirst("branch refs/heads/".count))
-            }
-        }
-        flush()
-        return result
-    }
 
     // Newly-created (untracked, non-ignored) files in a worktree.
     static func untrackedFiles(root: String) -> [String] {
-        (runProcess("/usr/bin/git", ["-C", root, "ls-files", "--others", "--exclude-standard"]) ?? "")
+        (runProcess(Git.executable, ["-C", root, "ls-files", "--others", "--exclude-standard"]) ?? "")
             .split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
     }
 

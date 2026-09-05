@@ -185,8 +185,7 @@ private final class UpdateCheckStore {
     private var model = Model()
 
     private var fileURL: URL {
-        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-        return URL(fileURLWithPath: home + "/.suit/update-check.json")
+        URL(fileURLWithPath: SuitPaths.directory + "/update-check.json")
     }
 
     init() {

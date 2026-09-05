@@ -159,7 +159,7 @@ final class SidebarView: NSView {
         // A stale persisted value (e.g. from a build with more tabs, or the
         // icon-less Git tab) falls back to Files rather than landing on a
         // tab with no icon in the activity bar to switch back from.
-        let saved = UserDefaults.standard.integer(forKey: "sidebarTab")
+        let saved = UserDefaults.standard.integer(forKey: DefaultsKey.sidebarTab)
         let restored = Tab(rawValue: saved) ?? .files
         selectedTab = Tab.railOrder.contains(restored) ? restored : .files
 
@@ -196,7 +196,7 @@ final class SidebarView: NSView {
 
     func select(tab: Tab) {
         selectedTab = tab
-        UserDefaults.standard.set(tab.rawValue, forKey: "sidebarTab")
+        UserDefaults.standard.set(tab.rawValue, forKey: DefaultsKey.sidebarTab)
         updateTabContent()
         onTabChange?(tab)
     }

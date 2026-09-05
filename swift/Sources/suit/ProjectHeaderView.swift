@@ -65,6 +65,8 @@ final class ProjectHeaderView: NSView {
     // the menu's checkmark), set on each updateBranch().
     private var repoRoot: String?
     private var currentBranch: String?
+    private var branches: [String] = []
+    private var worktrees: [WorktreeEntry] = []
     // The rest of the repo state the actions menu reads: upstream position,
     // whether Stash/Discard have anything to act on, and how many stash
     // entries Pop would draw from.
@@ -169,7 +171,7 @@ final class ProjectHeaderView: NSView {
 
     // Feeds the branch row; `root == nil` hides it (not a git repo).
     func updateBranch(
-        root: String?, branch: String?, branches: Int, worktrees: Int,
+        root: String?, branch: String?, branches: [String] = [], worktrees: [WorktreeEntry] = [],
         sync: GitBranchOps.SyncState = .untracked, hasLocalChanges: Bool = false, stashCount: Int = 0
     ) {
         hasBranch = root != nil
@@ -181,17 +183,19 @@ final class ProjectHeaderView: NSView {
 
         repoRoot = root
         currentBranch = branch
+        self.branches = branches
+        self.worktrees = worktrees
         self.sync = sync
         self.hasLocalChanges = hasLocalChanges
         self.stashCount = stashCount
         setBranchTitle(branch ?? "detached HEAD", dim: branch == nil)
 
         let counts: String
-        if branches == 0 && worktrees == 0 {
+        if branches.isEmpty && worktrees.isEmpty {
             counts = ""
         } else {
-            let branchPart = "\(branches) \(branches == 1 ? "branch" : "branches")"
-            let worktreePart = "\(worktrees) \(worktrees == 1 ? "worktree" : "worktrees")"
+            let branchPart = "\(branches.count) \(branches.count == 1 ? "branch" : "branches")"
+            let worktreePart = "\(worktrees.count) \(worktrees.count == 1 ? "worktree" : "worktrees")"
             counts = " — \(branchPart) · \(worktreePart)"
         }
         branchButton.toolTip = "\(branch ?? "detached HEAD")\(counts)"
@@ -247,7 +251,7 @@ final class ProjectHeaderView: NSView {
         let menu = NSMenu()
 
         menu.addItem(Self.headerItem("Worktrees"))
-        for worktree in WorktreeSwitcher.worktrees(root: repoRoot) {
+        for worktree in worktrees {
             let name = (worktree.path as NSString).lastPathComponent
             let item = menu.addItem(
                 withTitle: "\(name) — \(worktree.branch ?? "detached")",
@@ -262,7 +266,7 @@ final class ProjectHeaderView: NSView {
 
         menu.addItem(.separator())
         menu.addItem(Self.headerItem("Branches"))
-        for branch in WorktreeSwitcher.branches(root: repoRoot) {
+        for branch in branches {
             let item = menu.addItem(withTitle: branch, action: #selector(checkoutBranchItem(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = branch
@@ -362,9 +366,9 @@ final class ProjectHeaderView: NSView {
     // branch is reached by escalation from the failure alert, so the "these
     // commits become unreachable" warning is shown at the moment it's true.
     private func addDeleteBranchItem(to menu: NSMenu, root: String) {
-        let claimed = Set(WorktreeSwitcher.worktrees(root: root).compactMap { $0.branch })
+        let claimed = Set(worktrees.compactMap { $0.branch })
         let deletable = GitBranchOps.deletableBranches(
-            all: WorktreeSwitcher.branches(root: root), current: currentBranch, checkedOutElsewhere: claimed
+            all: branches, current: currentBranch, checkedOutElsewhere: claimed
         )
         let parent = menu.addItem(withTitle: "Delete Branch", action: nil, keyEquivalent: "")
         guard !deletable.isEmpty else {

@@ -69,11 +69,8 @@ final class TranscriptPaneContent: NSObject, PaneContent, NSTextViewDelegate {
     // Which entry the last jump anchored on (nil if none) — the anchor visible
     // to the harness/verification.
     private(set) var anchoredEntryIndex: Int?
-    // Live-tail state: how far into the file we've parsed, plus any trailing
-    // partial line the last read stopped in the middle of.
-    var readOffset: UInt64 = 0
-    var remainder = Data()
-    var watchSource: DispatchSourceFileSystemObject?
+    // The live tail of the transcript file; nil while no file is loaded.
+    var tailer: FileTailer?
 
     private var font: NSFont = .monospacedSystemFont(ofSize: 12, weight: .regular)
     private var baseTextColor: NSColor = .textColor
@@ -83,7 +80,7 @@ final class TranscriptPaneContent: NSObject, PaneContent, NSTextViewDelegate {
     static let maxEntries = 4000
     // How far past `maxEntries` the list is allowed to run before it is cut
     // back down. Trimming rebuilds the whole document, so this amortizes that
-    // cost over `trimSlack` appends (see TranscriptPane+Tail.readAppended).
+    // cost over `trimSlack` appends (see TranscriptPane+Tail.consume).
     static let trimSlack = 1000
 
     var view: NSView { scrollView }
@@ -135,13 +132,8 @@ final class TranscriptPaneContent: NSObject, PaneContent, NSTextViewDelegate {
         tab?.contentTitleDidChange("Transcript — \(title)")
 
         stopWatching()
-        entries = []
-        entrySourceLines = []
-        lineCounter = 0
-        entryCharStarts = []
-        anchoredEntryIndex = nil
-        readOffset = 0
-        remainder = Data()
+        resetEntries()
+        render()
 
         guard let path, FileManager.default.fileExists(atPath: path) else {
             transcriptPath = nil
@@ -151,9 +143,17 @@ final class TranscriptPaneContent: NSObject, PaneContent, NSTextViewDelegate {
             return
         }
         transcriptPath = path
-        readAppended()
         watch(path: path)
         textView.scrollToEndOfDocument(nil)
+    }
+
+    // Drops everything parsed so far — a new file, or the old one started over.
+    func resetEntries() {
+        entries = []
+        entrySourceLines = []
+        lineCounter = 0
+        entryCharStarts = []
+        anchoredEntryIndex = nil
     }
 
     // MARK: Rendering

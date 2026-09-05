@@ -28,7 +28,7 @@ enum GitBlame {
         DispatchQueue.global(qos: .utility).async {
             let directory = (filePath as NSString).deletingLastPathComponent
             guard let root = FileIndex.gitRoot(of: directory),
-                  let output = runProcess("/usr/bin/git", ["-C", root, "blame", "--porcelain", "--", filePath]) else {
+                  let output = runProcess(Git.executable, ["-C", root, "blame", "--porcelain", "--", filePath]) else {
                 DispatchQueue.main.async { completion([:]) }
                 return
             }
@@ -97,7 +97,7 @@ enum GitFileHistory {
         DispatchQueue.global(qos: .utility).async {
             let directory = (filePath as NSString).deletingLastPathComponent
             guard let root = FileIndex.gitRoot(of: directory),
-                  let output = runProcess("/usr/bin/git", [
+                  let output = runProcess(Git.executable, [
                     "-C", root, "log", "--follow", "--format=%H%x1f%h%x1f%an%x1f%at%x1f%s", "--", filePath,
                   ]) else {
                 DispatchQueue.main.async { completion(nil, []) }

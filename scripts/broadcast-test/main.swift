@@ -1,6 +1,6 @@
 import Foundation
 
-// Standalone logic test for the Phase 35 broadcast core. Compiled with only
+// Standalone logic test for the broadcast core. Compiled with only
 // swift/Sources/suit/Broadcast.swift (Foundation-only, no app deps), the
 // FeedbackRouting/DiffReview standalone-test pattern. Exercises
 // the pure target resolution (scope × hosted × fleet order, dedup) and the

@@ -295,8 +295,7 @@ final class ActivityStore {
         if let fileURL {
             self.fileURL = fileURL
         } else {
-            let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-            self.fileURL = URL(fileURLWithPath: home + "/.suit/activity.jsonl")
+            self.fileURL = URL(fileURLWithPath: SuitPaths.directory + "/activity.jsonl")
         }
         load()
     }

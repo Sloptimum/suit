@@ -1,5 +1,5 @@
 #!/bin/bash
-# Activity-feed logic test (ROADMAP Phase 38): compiles the UI-free core
+# Activity-feed logic test: compiles the UI-free core
 # (swift/Sources/suit/Activity.swift, Foundation-only, no app deps) with
 # scripts/activity-test/main.swift and runs its assertions — newest-first feed
 # ordering (incl. deterministic ties), row routing (session > PR > none),
@@ -19,6 +19,7 @@ trap 'rm -f "$DRIVER"' EXIT
 echo "==> Compiling activity-feed logic test"
 if ! swiftc -O \
     "$ROOT/swift/Sources/suit/Activity.swift" \
+    "$ROOT/swift/Sources/suit/SuitPaths.swift" \
     "$ROOT/scripts/activity-test/main.swift" \
     -o "$DRIVER"; then
     echo "COMPILE FAILED"

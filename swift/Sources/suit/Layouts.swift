@@ -156,11 +156,8 @@ final class LayoutStore {
 
     private var model = Model()
 
-    // $HOME rather than NSHomeDirectory() so tests/harnesses can point the
-    // store at a scratch home (same reasoning as FavoritesStore / ClaudeIntegration).
     private var fileURL: URL {
-        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-        return URL(fileURLWithPath: home + "/.suit/layouts.json")
+        URL(fileURLWithPath: SuitPaths.directory + "/layouts.json")
     }
 
     private init() {
@@ -209,9 +206,10 @@ final class LayoutStore {
         load()
     }
 
+    // StoreFile.load rather than a bare try?: a present-but-unreadable file is
+    // quarantined, so the next persist() can't overwrite the user's layouts.
     private func load() {
-        guard let data = try? Data(contentsOf: fileURL),
-              let decoded = try? JSONDecoder().decode(Model.self, from: data) else { return }
+        guard let decoded = StoreFile.load(Model.self, from: fileURL.path) else { return }
         model = decoded
     }
 

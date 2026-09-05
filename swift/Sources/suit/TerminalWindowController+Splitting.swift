@@ -213,6 +213,6 @@ extension TerminalWindowController {
         // Persist the width the user dragged the sidebar to.
         guard notification.object as? NSSplitView === sidebarSplit,
               !sidebar.isHidden, sidebar.frame.width >= SidebarView.minWidth else { return }
-        UserDefaults.standard.set(Double(sidebar.frame.width), forKey: "sidebarWidth")
+        UserDefaults.standard.set(Double(sidebar.frame.width), forKey: DefaultsKey.sidebarWidth)
     }
 }

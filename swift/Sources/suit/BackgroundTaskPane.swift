@@ -32,11 +32,9 @@ final class BackgroundTaskPaneContent: NSObject, PaneContent, NSTableViewDataSou
     // Last title pushed to the strip, so the heartbeat only republishes on change.
     private var lastPublishedTitle: String?
 
-    // Live-tail state for the selected task's log (the TranscriptPane+Tail
-    // pattern): a DispatchSource on the file plus a byte offset.
+    // The selected task's log and its live tail (nil while none is shown).
     private var logPath: String?
-    private var logOffset: UInt64 = 0
-    private var logWatch: DispatchSourceFileSystemObject?
+    private var logTailer: FileTailer?
 
     private var font: NSFont = .monospacedSystemFont(ofSize: 12, weight: .regular)
 
@@ -182,16 +180,15 @@ final class BackgroundTaskPaneContent: NSObject, PaneContent, NSTableViewDataSou
         tailLog(of: task)
     }
 
-    // MARK: - Log tail (DispatchSource on the selected task's captured output)
+    // MARK: - Log tail (a FileTailer on the selected task's captured output)
 
     private func tailLog(of task: BackgroundTask) {
         // Idempotent: re-selecting the already-tailed task (which happens every
         // heartbeat, since reloadData drops and we restore the selection) must
         // not tear down the live tail and blank the view — leave it running.
-        if task.logPath == logPath, logWatch != nil { return }
+        if task.logPath == logPath, logTailer != nil { return }
         stopTailing()
         logView.string = ""
-        logOffset = 0
         guard let path = task.logPath, FileManager.default.fileExists(atPath: path) else {
             logPath = nil
             logView.string = task.logPath == nil
@@ -200,35 +197,21 @@ final class BackgroundTaskPaneContent: NSObject, PaneContent, NSTableViewDataSou
             return
         }
         logPath = path
-        readAppendedLog()
         watchLog(path: path)
         logView.scrollToEndOfDocument(nil)
     }
 
     private func watchLog(path: String) {
-        let fd = open(path, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd, eventMask: [.write, .extend, .delete, .rename], queue: .main
+        let tailer = FileTailer(
+            path: path,
+            onReset: { [weak self] in self?.logView.string = "" },
+            onLines: { [weak self] lines in self?.appendLog(lines: lines) }
         )
-        source.setEventHandler { [weak self] in
-            guard let self else { return }
-            if source.data.contains(.delete) || source.data.contains(.rename) {
-                self.stopTailing()
-                return
-            }
-            self.readAppendedLog()
-        }
-        source.setCancelHandler { close(fd) }
-        source.resume()
-        logWatch = source
+        logTailer = tailer
+        tailer.start()
     }
 
-    private func readAppendedLog() {
-        guard let logPath,
-              let (lines, newOffset) = LogTail.readAppended(path: logPath, from: logOffset),
-              !lines.isEmpty else { return }
-        logOffset = newOffset
+    private func appendLog(lines: [String]) {
         let wasAtBottom = isLogAtBottom
         let text = lines.joined(separator: "\n") + "\n"
         let attributed = NSAttributedString(string: text, attributes: [
@@ -244,8 +227,8 @@ final class BackgroundTaskPaneContent: NSObject, PaneContent, NSTableViewDataSou
     }
 
     private func stopTailing() {
-        logWatch?.cancel()
-        logWatch = nil
+        logTailer?.stop()
+        logTailer = nil
     }
 
     // MARK: - Appearance

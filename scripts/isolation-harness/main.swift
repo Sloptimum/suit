@@ -1,6 +1,6 @@
 import Foundation
 
-// Assertion driver for the Phase 31 pure logic: the per-task isolation
+// Assertion driver for the pure logic: the per-task isolation
 // decision (TaskLaunch) and the subagent tree (SubagentTree). Mirrors the
 // mode-plan / feedback-routing harness convention — print OBSERVE lines, exit
 // nonzero on the first failure.

@@ -43,21 +43,7 @@ func resolveCtagsExecutable() -> String? {
 // BSD/Exuberant variants don't (and BSD ctags errors on the flag). Keeps the
 // index from launching a binary whose output it can't parse.
 private func isUniversalCtags(_ path: String) -> Bool {
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: path)
-    process.arguments = ["--version"]
-    let pipe = Pipe()
-    process.standardOutput = pipe
-    process.standardError = Pipe()
-    do {
-        try process.run()
-    } catch {
-        return false
-    }
-    let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
-    process.waitUntilExit()
-    let text = String(decoding: data, as: UTF8.self)
-    return text.contains("Universal Ctags")
+    runProcess(path, ["--version"], probe: true)?.contains("Universal Ctags") ?? false
 }
 
 final class SymbolIndex {
@@ -161,43 +147,23 @@ final class SymbolIndex {
 
     // Runs `ctags -f - --fields=+n --sort=no -L -` with the file list on stdin,
     // parses the classic tag output. Only definitions, so tabs/patterns are
-    // whatever ctags emits; SymbolIndexCore handles the format.
+    // whatever ctags emits; SymbolIndexCore handles the format. The file list
+    // goes in on stdin, so argv says nothing about scope; the ops-log row gets
+    // the count instead. Parsed whatever the exit status: ctags reports an
+    // unparsable file as a nonzero exit while still emitting tags for the rest.
     private static func runCtags(ctagsPath: String, root: String, files: [String]) -> [String: [SymbolDefinition]] {
         guard !files.isEmpty else { return [:] }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: ctagsPath)
-        process.arguments = [
-            "-f", "-",            // tags to stdout
-            "--fields=+n",        // include line:N
-            "--sort=no",          // don't pay to sort; we group by name ourselves
-            "-L", "-",            // read the file list from stdin
-        ]
-        process.currentDirectoryURL = URL(fileURLWithPath: root)
-
-        let stdin = Pipe()
-        let stdout = Pipe()
-        process.standardInput = stdin
-        process.standardOutput = stdout
-        process.standardError = Pipe()
-
-        do {
-            try process.run()
-        } catch {
-            return [:]
-        }
-
-        // Write the newline-joined file list, then close so ctags sees EOF. Done
-        // on a separate queue so a large list can't deadlock against a full
-        // stdout pipe we haven't drained yet.
         let listData = Data((files.joined(separator: "\n") + "\n").utf8)
-        DispatchQueue.global(qos: .utility).async {
-            stdin.fileHandleForWriting.write(listData)
-            try? stdin.fileHandleForWriting.close()
-        }
-
-        let outData = (try? stdout.fileHandleForReading.readToEnd()) ?? Data()
-        process.waitUntilExit()
-        let text = String(decoding: outData, as: UTF8.self)
-        return SymbolIndexCore.parseTags(text)
+        guard let result = try? runProcessCapturing(
+            ctagsPath,
+            [
+                "-f", "-",            // tags to stdout
+                "--fields=+n",        // include line:N
+                "--sort=no",          // don't pay to sort; we group by name ourselves
+                "-L", "-",            // read the file list from stdin
+            ],
+            cwd: root, stdin: listData, detail: "\(files.count) files"
+        ) else { return [:] }
+        return SymbolIndexCore.parseTags(result.stdout)
     }
 }

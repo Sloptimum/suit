@@ -88,7 +88,7 @@ final class FileIndex {
     static func gitRoot(of directory: String) -> String? {
         // A probe: "not a repo" is an ordinary answer here, not a failure.
         let output = runProcess(
-            "/usr/bin/git", ["-C", directory, "rev-parse", "--show-toplevel"], probe: true
+            Git.executable, ["-C", directory, "rev-parse", "--show-toplevel"], probe: true
         )
         guard let output, !output.isEmpty else { return nil }
         return output.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -158,7 +158,7 @@ final class FileIndex {
         // only correct .gitignore implementation there is. --cached + --others
         // (with the standard excludes) is exactly "tracked plus untracked but
         // not ignored".
-        if let output = runProcess("/usr/bin/git", ["-C", root, "ls-files", "--cached", "--others", "--exclude-standard", "-z"]) {
+        if let output = runProcess(Git.executable, ["-C", root, "ls-files", "--cached", "--others", "--exclude-standard", "-z"]) {
             var seen = Set<String>()
             var result: [String] = []
             for path in output.split(separator: "\0") where !path.isEmpty {
@@ -180,7 +180,7 @@ final class FileIndex {
     // .gitignore to read, nothing is ignored (the fallback scan's pruning of
     // node_modules/.git is a different thing, and stays hidden).
     private static func scanIgnored(root: String) -> [IgnoredEntry] {
-        guard let output = runProcess("/usr/bin/git", [
+        guard let output = runProcess(Git.executable, [
             "-C", root, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z",
         ]) else { return [] }
         return parseIgnoredEntries(output)
@@ -372,64 +372,4 @@ final class FileIndex {
             normalized == $0 || normalized.hasPrefix($0 + "/")
         }
     }
-}
-
-// Runs a process to completion and returns stdout, or nil on nonzero exit /
-// launch failure. Used for git (here, the diff pane, review tooling);
-// never called on paths derived from file content.
-//
-// Every internal subprocess Suit spawns of its own accord goes through here,
-// which makes this the one place worth instrumenting: the operations log
-// (OpsLog) derives the row's name and kind from argv, so a `git` call added
-// anywhere in the app shows up in the Background tab without its author writing
-// a line of logging. `trigger` names *why* the call is being made — pass it at
-// sites that know (the status monitor knows an FSEvents burst asked); anything
-// else inherits the ambient trigger its caller scoped with OpsLog.withTrigger.
-// `probe` marks a call whose *job* is to ask a yes/no question — "is this
-// directory in a repo", "does this ref exist" — where a nonzero exit is the
-// answer "no", not a fault. Without it those rows log red, and a log where the
-// commonest routine call is red is a log whose red stops meaning anything.
-func runProcess(
-    _ executable: String, _ arguments: [String], trigger: String? = nil, probe: Bool = false
-) -> String? {
-    let derived = OpsLabel.derive(executable: executable, arguments: arguments)
-    let watch = OpsStopwatch()
-    let output = spawnProcess(executable, arguments)
-    OpsLog.shared.record(
-        kind: derived.kind,
-        label: derived.label,
-        detail: derived.detail,
-        trigger: trigger ?? OpsLog.currentTrigger,
-        startedAt: watch.startedAt,
-        duration: watch.elapsed,
-        // A command that ran fine and printed nothing (`git status` in a clean
-        // tree) is `.empty`, not a failure.
-        outcome: output.map { $0.isEmpty ? .empty : .ok } ?? (probe ? .empty : .failed)
-    )
-    return output
-}
-
-// The uninstrumented spawn. Split out so the timing wrapper above reads as one
-// thing and the process plumbing as another.
-private func spawnProcess(_ executable: String, _ arguments: [String]) -> String? {
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: executable)
-    process.arguments = arguments
-    let stdout = Pipe()
-    process.standardOutput = stdout
-    // stderr is discarded (we only return stdout), but it must be drained or the
-    // child blocks once it writes past the ~64 KB pipe buffer — with stderr's
-    // pipe never read, that stalls the child, which never closes stdout, so the
-    // readDataToEndOfFile below would hang forever. Route it to /dev/null so a
-    // chatty git command (a flood of warnings, advice, CRLF notices) can't wedge us.
-    process.standardError = FileHandle.nullDevice
-    do {
-        try process.run()
-    } catch {
-        return nil
-    }
-    let data = stdout.fileHandleForReading.readDataToEndOfFile()
-    process.waitUntilExit()
-    guard process.terminationStatus == 0 else { return nil }
-    return String(data: data, encoding: .utf8)
 }

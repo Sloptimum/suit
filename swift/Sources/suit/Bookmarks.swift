@@ -33,11 +33,7 @@ final class BookmarksStore {
 
     private(set) var bookmarks: [Bookmark]
 
-    // $HOME rather than NSHomeDirectory(), same as NotesStore/ClaudeIntegration.
-    private static var suitDirectory: String {
-        (ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()) + "/.suit"
-    }
-    static var path: String { suitDirectory + "/bookmarks.json" }
+    static var path: String { SuitPaths.directory + "/bookmarks.json" }
 
     init() {
         guard let decoded = StoreFile.load([Bookmark].self, from: Self.path) else {
@@ -102,7 +98,7 @@ final class BookmarksStore {
     }
 
     private func flush() {
-        try? FileManager.default.createDirectory(atPath: Self.suitDirectory, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(atPath: SuitPaths.directory, withIntermediateDirectories: true)
         if let data = try? JSONEncoder().encode(bookmarks) {
             try? data.write(to: URL(fileURLWithPath: Self.path), options: .atomic)
         }

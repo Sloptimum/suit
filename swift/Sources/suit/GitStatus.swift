@@ -31,11 +31,13 @@ final class GitStatusMonitor {
     private(set) var stagedByPath: [String: Character] = [:]
     private(set) var unstagedByPath: [String: Character] = [:]
 
-    // Repo shape for the Files-tab header: the checked-out branch (nil while
-    // detached), local branch count, and worktree count. Main-queue only.
+    // Repo shape for the Files-tab header and the switcher menus: the
+    // checked-out branch (nil while detached), every local branch, and every
+    // worktree. The menus read these lists when they open instead of running
+    // git on the main thread. Main-queue only.
     private(set) var currentBranch: String?
-    private(set) var branchCount = 0
-    private(set) var worktreeCount = 0
+    private(set) var branches: [String] = []
+    private(set) var worktrees: [WorktreeEntry] = []
 
     // The branch row's sync badge and the stash entries the actions menu
     // offers to pop — both refreshed on the same pass as the shape above, so
@@ -151,8 +153,8 @@ final class GitStatusMonitor {
             && parsed.staged == stagedByPath
             && parsed.unstaged == unstagedByPath
             && shape.branch == currentBranch
-            && shape.branches == branchCount
-            && shape.worktrees == worktreeCount
+            && shape.branches == branches
+            && shape.worktrees == worktrees
             && shape.sync == sync
             && shape.stashes == stashCount
         guard !unchanged else { return }
@@ -161,8 +163,8 @@ final class GitStatusMonitor {
         stagedByPath = parsed.staged
         unstagedByPath = parsed.unstaged
         currentBranch = shape.branch
-        branchCount = shape.branches
-        worktreeCount = shape.worktrees
+        branches = shape.branches
+        worktrees = shape.worktrees
         sync = shape.sync
         stashCount = shape.stashes
         var directories: Set<String> = []
@@ -189,7 +191,7 @@ final class GitStatusMonitor {
     // path is plenty for a badge. The Git tab wants the columns kept apart,
     // so both are also recorded separately.
     private static func readStatus(root: String) -> StatusSnapshot {
-        guard let output = runProcess("/usr/bin/git", ["-C", root, "status", "--porcelain", "-z"]) else {
+        guard let output = runProcess(Git.executable, ["-C", root, "status", "--porcelain", "-z"]) else {
             return StatusSnapshot()
         }
         var snapshot = StatusSnapshot()
@@ -223,8 +225,8 @@ final class GitStatusMonitor {
     // rather than the loose tuple it used to be.
     struct RepoShape: Equatable {
         var branch: String?
-        var branches: Int
-        var worktrees: Int
+        var branches: [String]
+        var worktrees: [WorktreeEntry]
         var sync: GitBranchOps.SyncState
         var stashes: Int
     }
@@ -232,18 +234,17 @@ final class GitStatusMonitor {
     // symbolic-ref rather than rev-parse --abbrev-ref so a freshly-initialized
     // repo (no commits yet) still reports its branch; -q makes a detached HEAD
     // a quiet nil. for-each-ref and `worktree list --porcelain` are plumbing,
-    // so their output is stable to count lines of.
+    // so their output is stable to parse (WorktreeSwitcher).
     private static func readRepoShape(root: String) -> RepoShape {
-        let rawBranch = runProcess("/usr/bin/git", ["-C", root, "symbolic-ref", "--short", "-q", "HEAD"])?
+        let rawBranch = runProcess(Git.executable, ["-C", root, "symbolic-ref", "--short", "-q", "HEAD"], probe: true)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let branch = rawBranch?.isEmpty == false ? rawBranch : nil
-        let branches = runProcess("/usr/bin/git", ["-C", root, "for-each-ref", "--format=%(refname)", "refs/heads"])
-            .map { $0.split(separator: "\n", omittingEmptySubsequences: true).count } ?? 0
-        let worktrees = runProcess("/usr/bin/git", ["-C", root, "worktree", "list", "--porcelain"])
-            .map { output in
-                output.split(separator: "\n", omittingEmptySubsequences: true)
-                    .filter { $0.hasPrefix("worktree ") }.count
-            } ?? 0
+        let branches = WorktreeSwitcher.parseBranches(
+            runProcess(Git.executable, ["-C", root, "for-each-ref", "--format=%(refname:short)", "refs/heads"]) ?? ""
+        )
+        let worktrees = WorktreeSwitcher.parseWorktrees(
+            runProcess(Git.executable, ["-C", root, "worktree", "list", "--porcelain"]) ?? ""
+        )
         return RepoShape(
             branch: branch, branches: branches, worktrees: worktrees,
             sync: readSync(root: root, branch: branch), stashes: readStashCount(root: root)
@@ -256,7 +257,7 @@ final class GitStatusMonitor {
     // exactly what the Fetch action in the menu is for).
     private static func readSync(root: String, branch: String?) -> GitBranchOps.SyncState {
         guard let branch else { return .untracked }
-        guard let output = runProcess("/usr/bin/git", [
+        guard let output = runProcess(Git.executable, [
             "-C", root, "for-each-ref",
             "--format=%(upstream:short)%09%(upstream:track,nobracket)",
             "refs/heads/" + branch,
@@ -269,7 +270,7 @@ final class GitStatusMonitor {
     }
 
     private static func readStashCount(root: String) -> Int {
-        runProcess("/usr/bin/git", ["-C", root, "stash", "list"])
+        runProcess(Git.executable, ["-C", root, "stash", "list"])
             .map { $0.split(separator: "\n", omittingEmptySubsequences: true).count } ?? 0
     }
 
@@ -281,7 +282,7 @@ final class GitStatusMonitor {
         let root = self.root
         Self.queue.async { [weak self] in
             guard let output = runProcess(
-                "/usr/bin/git", ["-C", root, "rev-parse", "--git-common-dir"],
+                Git.executable, ["-C", root, "rev-parse", "--git-common-dir"],
                 trigger: "project opened", probe: true
             ) else { return }
             var gitDir = output.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -357,7 +358,7 @@ enum GitChangedLines {
         DispatchQueue.global(qos: .utility).async {
             let directory = (filePath as NSString).deletingLastPathComponent
             guard let root = FileIndex.gitRoot(of: directory),
-                  let diff = runProcess("/usr/bin/git", ["-C", root, "diff", "HEAD", "-U0", "--", filePath]) else {
+                  let diff = runProcess(Git.executable, ["-C", root, "diff", "HEAD", "-U0", "--", filePath]) else {
                 DispatchQueue.main.async { completion(IndexSet()) }
                 return
             }

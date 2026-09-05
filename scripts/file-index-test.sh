@@ -7,9 +7,10 @@
 # droppings (.DS_Store, ._*) are pruned.
 # Mirrors the FeedbackRouting / DiffParser / Recipes standalone-test pattern.
 #
-# OpsLog.swift joins the compile because runProcess (which lives in FileIndex)
-# records every spawn to the operations log; it is Foundation-only too, so the
-# harness stays app-free.
+# ProcessUtil.swift joins the compile because FileIndex spawns git through
+# runProcess (which lives there), and OpsLog.swift because runProcess records
+# every spawn to the operations log; both are Foundation-only, so the harness
+# stays app-free.
 #
 # Usage: scripts/file-index-test.sh   (run from the repo root)
 # Exit: 0 all pass, 1 an assertion failed, 64 compile failure.
@@ -23,6 +24,7 @@ trap 'rm -f "$DRIVER"' EXIT
 echo "==> Compiling FileIndex logic test"
 if ! swiftc -O \
     "$ROOT/swift/Sources/suit/FileIndex.swift" \
+    "$ROOT/swift/Sources/suit/ProcessUtil.swift" \
     "$ROOT/swift/Sources/suit/OpsLog.swift" \
     "$ROOT/scripts/file-index-test/main.swift" \
     -o "$DRIVER"; then

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mode + plan-approval logic harness (ROADMAP Phase 26). Compiles the real
+# Mode + plan-approval logic harness. Compiles the real
 # ClaudeMode.swift and PlanParsing.swift (the pure control logic the phase
 # rests on) against a tiny ClaudeSession stub plus the assertion driver in
 # scripts/mode-plan-harness/main.swift, then runs it. No app, no UI — just the

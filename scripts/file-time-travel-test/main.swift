@@ -1,6 +1,6 @@
 import Foundation
 
-// Standalone assertion driver for the file time-travel core (ROADMAP Phase 40),
+// Standalone assertion driver for the file time-travel core,
 // compiled against swift/Sources/suit/FileTimeTravel.swift by
 // scripts/file-time-travel-test.sh. The harness builds a fixture git repo with a
 // file whose lines change across three commits plus an uncommitted working-tree

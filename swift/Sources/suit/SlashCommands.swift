@@ -43,7 +43,7 @@ enum SlashCommandCatalog {
     // The full catalog for a session: user-level ~/.claude always, plus the
     // session project's own .claude when the cwd is inside one.
     static func forSession(cwd: String?, home: String? = nil) -> [SlashCommand] {
-        let h = home ?? ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
+        let h = home ?? SuitPaths.home
         var commandDirs = [h + "/.claude/commands"]
         var skillDirs = [h + "/.claude/skills"]
         if let cwd, let root = nearestClaudeRoot(from: cwd), root != h {

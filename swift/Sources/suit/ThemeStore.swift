@@ -45,12 +45,9 @@ final class ThemeStore {
         selectedId = loadSelection()
     }
 
-    // MARK: - Paths ($HOME-resolved so harnesses can sandbox them)
+    // MARK: - Paths
 
-    private var suitDir: URL {
-        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-        return URL(fileURLWithPath: home + "/.suit")
-    }
+    private var suitDir: URL { URL(fileURLWithPath: SuitPaths.directory) }
     private var themesDir: URL { suitDir.appendingPathComponent("themes", isDirectory: true) }
     private var selectionURL: URL { suitDir.appendingPathComponent("theme.json") }
 
@@ -220,10 +217,10 @@ final class ThemeStore {
 
     private struct Selection: Codable { var selected: String? }
 
+    // StoreFile.load rather than a bare try?, so an unreadable selection file
+    // is moved aside instead of overwritten by the next saveSelection.
     private func loadSelection() -> String? {
-        guard let data = try? Data(contentsOf: selectionURL),
-              let sel = try? JSONDecoder().decode(Selection.self, from: data) else { return nil }
-        return sel.selected
+        StoreFile.load(Selection.self, from: selectionURL.path)?.selected
     }
 
     private func saveSelection(_ id: String) {

@@ -1,6 +1,6 @@
 import Cocoa
 
-// State restoration (cross-cutting ROADMAP principle): reopen with the same
+// State restoration (a cross-cutting principle): reopen with the same
 // windows, tabs, and layout. Captured at quit (applicationWillTerminate) and
 // replayed on the next launch.
 //

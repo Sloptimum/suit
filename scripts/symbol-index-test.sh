@@ -1,5 +1,5 @@
 #!/bin/bash
-# Symbol-index logic test (ROADMAP Phase 33): compiles the UI-free core
+# Symbol-index logic test: compiles the UI-free core
 # (swift/Sources/suit/SymbolIndexCore.swift, Foundation-only, no app deps) with
 # scripts/symbol-index-test/main.swift and runs its assertions — the ctags-tag
 # parser, the identifier-under-caret extraction, the definition lookup and the

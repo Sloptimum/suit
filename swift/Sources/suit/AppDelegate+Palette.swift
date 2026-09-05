@@ -513,8 +513,7 @@ extension AppDelegate {
     // as palette entries that send into the focused pane's terminal. Saved
     // prompts as files, not a settings UI.
     private func promptLibraryCommands() -> [PaletteCommand] {
-        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-        let dir = home + "/.suit/prompts"
+        let dir = SuitPaths.directory + "/prompts"
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: dir) else { return [] }
         return names.filter { $0.hasSuffix(".md") }.sorted().map { name in
             PaletteCommand(title: "Prompt: \((name as NSString).deletingPathExtension)", shortcut: nil) { [weak self] in
