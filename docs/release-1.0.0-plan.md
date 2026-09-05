@@ -95,4 +95,4 @@ current in this file. Tick a box in the same commit that finishes the step.
       feedback inbox uses the one porcelain parser. Noted by the advisor, left alone:
       `Activity.swift` bare-reads its `.jsonl` (per-line tolerant) and the switcher menus are
       empty until the monitor's first pass lands.
-- [ ] Merge `main` into `1.0.0`, resolve, re-run tests, open the PR.
+- [x] `main` had not moved (nothing to merge); pushed and opened PR #105 against `main`.
