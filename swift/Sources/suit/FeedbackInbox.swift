@@ -79,19 +79,9 @@ enum FeedbackInbox {
         return events
     }
 
-    // `git worktree list --porcelain`: "worktree <path>" then "branch
-    // refs/heads/<name>" (or "detached") per block. (GitView+Worktrees has a
-    // private twin; this copy keeps the inbox self-contained.)
+    // `git worktree list --porcelain`, through the one parser (WorktreeSwitcher).
     private static func listWorktrees(root: String) -> [(path: String, branch: String?)] {
         guard let output = runProcess(Git.executable, ["-C", root, "worktree", "list", "--porcelain"]) else { return [] }
-        var result: [(path: String, branch: String?)] = []
-        for line in output.split(separator: "\n", omittingEmptySubsequences: true) {
-            if line.hasPrefix("worktree ") {
-                result.append((path: String(line.dropFirst("worktree ".count)), branch: nil))
-            } else if line.hasPrefix("branch refs/heads/"), !result.isEmpty {
-                result[result.count - 1].branch = String(line.dropFirst("branch refs/heads/".count))
-            }
-        }
-        return result
+        return WorktreeSwitcher.parseWorktrees(output).map { (path: $0.path, branch: $0.branch) }
     }
 }

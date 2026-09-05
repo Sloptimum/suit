@@ -13,8 +13,13 @@ current in this file. Tick a box in the same commit that finishes the step.
 - Merge target: `main`, by pull request, after the whole list is done and the advisor review
   (CLAUDE.md §7) has run. Nothing merges before then.
 - The in-flight `integrate/code-health` branch already covers the unlisted-harness gap, shared file
-  limits, a shell-quote helper, and CI pins. None of that is redone here. Expect small conflicts
-  in `scripts/test.sh` and `ProcessUtil.swift` when the two meet; both are additive.
+  limits, a shell-quote helper, and CI pins. None of that is redone here, though both branches
+  remove the same "(ROADMAP Phase N)" comments from seventeen scripts (identical text, so git
+  merges them). Expect conflicts in `scripts/test.sh` (both add harness entries: keep all),
+  `ProcessUtil.swift` (both additive), `AppDelegate+SettingsPersistence.swift` (keep code-health's
+  textColorA fallback, spelled with `DefaultsKey`), `CLAUDE.md`, `build.sh`,
+  `scripts/claude/suit-session-state.sh`, and one comment line each in `GoalComposition.swift` and
+  `StateRestoration.swift`.
 
 ## How to resume
 
@@ -82,5 +87,12 @@ current in this file. Tick a box in the same commit that finishes the step.
       with a sandboxed `$HOME` (the design-reference scenario plus a diff tab on a fixture repo,
       so the split initializer and the async diff load ran for real). The bundle itself was not
       launched: it would share the live `~/.suit` and defaults with a running Suit.
-- [ ] Advisor review of the full diff (CLAUDE.md §7): the diff exceeds 300 lines.
+- [x] Advisor review of the full diff (CLAUDE.md §7). Verdict: merge with fixes. Applied: the
+      stdin write in `ProcessUtil.spawn` sets `F_SETNOSIGPIPE` (a ctags that exits mid-list used
+      to kill the app with SIGPIPE — a hazard older than this branch); `lsof` gets `-a` so a
+      task's port can no longer be another process's; `symbolic-ref` is a probe (a detached HEAD
+      no longer logs red); the dead `loadDiffText`, `branchCount`, `worktreeCount` are gone; the
+      feedback inbox uses the one porcelain parser. Noted by the advisor, left alone:
+      `Activity.swift` bare-reads its `.jsonl` (per-line tolerant) and the switcher menus are
+      empty until the monitor's first pass lands.
 - [ ] Merge `main` into `1.0.0`, resolve, re-run tests, open the PR.

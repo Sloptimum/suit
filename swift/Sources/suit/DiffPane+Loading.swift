@@ -12,17 +12,6 @@ extension DiffPaneContent {
         }
     }
 
-    // Feeds a diff the caller already holds (a restored tab, a review set).
-    // `reload` is what Refresh re-runs — on a worker, like every load.
-    func loadDiffText(_ diff: String, title: String, root: String?, reload: (() -> String)? = nil) {
-        loadGeneration += 1
-        gitRoot = root
-        self.reload = reload
-        loadStatus = title
-        setDiff(diff, status: title)
-        tab?.contentTitleDidChange(title)
-    }
-
     // The load every git- or gh-backed diff goes through. The producer spawns
     // a process whose output can run to megabytes — a whole commit, a branch's
     // divergence, every worktree since a mark — so it runs on a worker while a

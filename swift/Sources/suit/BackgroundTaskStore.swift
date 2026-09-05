@@ -155,7 +155,10 @@ final class BackgroundTaskStore {
         let candidates = ["/usr/sbin/lsof", "/usr/bin/lsof"]
         guard let lsof = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { return nil }
         guard let output = runProcess(
-            lsof, ["-nP", "-p", "\(pid)", "-iTCP", "-sTCP:LISTEN"],
+            // -a ANDs the selectors; without it lsof ORs them and lists every
+            // listener on the machine, and another process's port became
+            // this task's.
+            lsof, ["-nP", "-a", "-p", "\(pid)", "-iTCP", "-sTCP:LISTEN"],
             trigger: "task monitor", probe: true, detail: "pid \(pid)"
         ) else { return nil }
         return BackgroundTasks.parseListeningPort(lsof: output)

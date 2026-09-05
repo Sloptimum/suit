@@ -503,7 +503,8 @@ final class FleetDashboardController: NSObject, NSWindowDelegate, NSTableViewDat
     }
 
     private static func gitBranch(cwd: String) -> String? {
-        let branch = runProcess(Git.executable, ["-C", cwd, "symbolic-ref", "--short", "-q", "HEAD"])?
+        // A probe: a detached HEAD exits nonzero and is an ordinary answer.
+        let branch = runProcess(Git.executable, ["-C", cwd, "symbolic-ref", "--short", "-q", "HEAD"], probe: true)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return branch?.isEmpty == false ? branch : nil
     }

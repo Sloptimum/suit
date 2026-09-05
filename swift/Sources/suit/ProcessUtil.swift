@@ -193,6 +193,14 @@ private func spawn(
     if let stdinPipe { process.standardInput = stdinPipe }
 
     try process.run()
+    if let stdinPipe {
+        // A child that exits before reading everything makes the write below a
+        // broken pipe. By default that is delivered as SIGPIPE and kills *us*;
+        // with the flag the write just fails with EPIPE, which is the child's
+        // answer and not ours to crash on. (F_SETNOSIGPIPE is per descriptor,
+        // so nothing else in the process changes its signal disposition.)
+        _ = fcntl(stdinPipe.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
+    }
 
     let workers = DispatchGroup()
     var stderrData = Data()
@@ -206,8 +214,7 @@ private func spawn(
     if let stdinPipe, let stdin {
         workers.enter()
         DispatchQueue.global(qos: .utility).async {
-            // A child that exits before reading everything makes this a
-            // broken pipe; that is its answer, not ours to crash on.
+            // EPIPE (see the fcntl above) is swallowed on purpose.
             try? stdinPipe.fileHandleForWriting.write(contentsOf: stdin)
             try? stdinPipe.fileHandleForWriting.close()
             workers.leave()

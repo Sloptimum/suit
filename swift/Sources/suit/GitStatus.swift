@@ -38,8 +38,6 @@ final class GitStatusMonitor {
     private(set) var currentBranch: String?
     private(set) var branches: [String] = []
     private(set) var worktrees: [WorktreeEntry] = []
-    var branchCount: Int { branches.count }
-    var worktreeCount: Int { worktrees.count }
 
     // The branch row's sync badge and the stash entries the actions menu
     // offers to pop — both refreshed on the same pass as the shape above, so
@@ -238,7 +236,7 @@ final class GitStatusMonitor {
     // a quiet nil. for-each-ref and `worktree list --porcelain` are plumbing,
     // so their output is stable to parse (WorktreeSwitcher).
     private static func readRepoShape(root: String) -> RepoShape {
-        let rawBranch = runProcess(Git.executable, ["-C", root, "symbolic-ref", "--short", "-q", "HEAD"])?
+        let rawBranch = runProcess(Git.executable, ["-C", root, "symbolic-ref", "--short", "-q", "HEAD"], probe: true)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let branch = rawBranch?.isEmpty == false ? rawBranch : nil
         let branches = WorktreeSwitcher.parseBranches(

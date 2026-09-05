@@ -413,7 +413,8 @@ app does.
   (hover it for the repo's branch/worktree counts); click the branch name to drop a switcher menu
   of the repo's
   **worktrees** (pick one to repoint the whole sidebar there) and **local branches** (pick one to
-  check it out). Picking a worktree also **walks the open terminals over** to it: every visible
+  check it out). The menu lists what the status monitor already knows — it refreshes on every
+  ref change, so the menu opens at once instead of running git on the click. Picking a worktree also **walks the open terminals over** to it: every visible
   shell sitting idle at a prompt inside the repo's worktree tree gets `cd`'d to the matching spot
   under the new worktree (same relative subpath when it exists there, otherwise the worktree root),
   so the terminal you're looking at actually lands on the new branch. Terminals mid-job (running
@@ -630,7 +631,8 @@ app does.
 ### Transcripts & history
 
 - **Transcripts** — open a live-tailing, read-only render of any session's transcript; file
-  paths in it are clickable like terminal links.
+  paths in it are clickable like terminal links. The window reuses one transcript tab, and pointing
+  it at another session (or a session whose transcript was recreated) clears it before refilling.
 - **Checkpoint timeline** — "Open Checkpoint Timeline…" shows a session's automatic pre-change
   checkpoints (the ones `/rewind` restores) as a read-only, live-tailing timeline, newest first:
   each node carries its timestamp, the prompt that triggered it, and the files it backed up.
