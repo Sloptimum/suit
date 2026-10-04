@@ -1,23 +1,54 @@
 import Cocoa
 
-// The window's sidebar half: build/toggle the icon rail and its tabs, route
+// The window's sidebar half: collapse and reveal the sidebar, route
 // sidebar events into the window (file clicks become viewer tabs), and pin the
 // Files tab to a folder.
 extension TerminalWindowController {
 
     // MARK: - Sidebar
 
+    var isSidebarCollapsed: Bool { splitController.sidebarItem.isCollapsed }
+
+    // ⌘B, the toolbar's sidebar button, View ▸ Toggle Sidebar. Animated, as the
+    // system sidebar is everywhere else; the programmatic reveals below are not,
+    // because they go on to select a tab and place the caret in it.
     func toggleSidebar() {
-        sidebar.isHidden.toggle()
-        layoutSidebarSplit()
-        UserDefaults.standard.set(!sidebar.isHidden, forKey: DefaultsKey.sidebarVisible)
-        // ⌘B changes no selection, so the shown tab has to be told the panel is
-        // back — Source Control defers its loads while hidden.
-        sidebar.shownTabDidBecomeVisible()
+        let collapsing = !isSidebarCollapsed
         // Collapsing the panel with the caret in it (the Search tab's fields,
-        // Notes) leaves a hidden view holding first responder, which then eats
-        // every keystroke; hand focus back to a pane instead.
-        if sidebar.isHidden { returnFocusToPane() }
+        // Notes) would leave a hidden view holding first responder, which then
+        // eats every keystroke; hand focus back to a pane before it goes.
+        if collapsing { returnFocusToPane(evenFromSidebar: true) }
+        UserDefaults.standard.set(!collapsing, forKey: DefaultsKey.sidebarVisible)
+        NSAnimationContext.runAnimationGroup({ context in
+            context.allowsImplicitAnimation = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            splitController.sidebarItem.animator().isCollapsed = collapsing
+        }, completionHandler: { [weak self] in
+            // ⌘B changes no selection, so the shown tab has to be told the
+            // panel is back — Source Control defers its loads while hidden.
+            if !collapsing { self?.sidebar.shownTabDidBecomeVisible() }
+        })
+    }
+
+    // Shows a collapsed sidebar at once, for the callers that are about to
+    // select a tab in it (a tab that claims the caret would otherwise put it
+    // on a still-hidden view, and the stranded-focus guard would hand it
+    // straight back to a pane).
+    func revealSidebar() {
+        guard isSidebarCollapsed else { return }
+        splitController.sidebarItem.isCollapsed = false
+        UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
+    }
+
+    // The window's subtitle under the title in the toolbar: the folder the
+    // sidebar is showing, the way Xcode names the open project. The home
+    // directory is "~", as a shell prompt names it, rather than the account name.
+    func refreshWindowSubtitle() {
+        guard let root = pinnedSidebarRoot ?? projectIndex?.root else {
+            window.subtitle = ""
+            return
+        }
+        let abbreviated = (root as NSString).abbreviatingWithTildeInPath
+        window.subtitle = abbreviated == "~" ? "~" : (root as NSString).lastPathComponent
     }
 
     // Focus for a sidebar surface that just went away: the focused pane, else the
@@ -27,9 +58,12 @@ extension TerminalWindowController {
     // caret legitimately (a terminal, a viewer) and is left alone — this must not
     // turn ⌘B into "steal focus". Everything else, the no-responder-at-all case
     // included, means nothing usable holds it.
-    func returnFocusToPane() {
+    //
+    // evenFromSidebar: the sidebar is about to collapse, so a responder inside
+    // it — still visible this instant — is about to be stranded too.
+    func returnFocusToPane(evenFromSidebar: Bool = false) {
         if let responder = window.firstResponder as? NSView,
-           !responder.isDescendant(of: sidebar),
+           !(evenFromSidebar && responder.isDescendant(of: sidebar)),
            !responder.isHiddenOrHasHiddenAncestor {
             return
         }
@@ -37,34 +71,10 @@ extension TerminalWindowController {
         window.makeFirstResponder(pane.focusTarget)
     }
 
-    // An activity-bar icon click, following VS Code: clicking the tab you're
-    // already looking at collapses the sidebar, and clicking any icon while it's
-    // collapsed brings the sidebar back on that tab — the icon of the selected
-    // tab included, which is why the hidden case is checked first rather than
-    // falling into the same-tab toggle and hiding an already-hidden sidebar.
-    // Routed through toggleSidebar() so `sidebarVisible` is persisted in one place.
-    func activateSidebarTab(_ tab: SidebarView.Tab) {
-        if sidebar.isHidden {
-            // Unhide *before* selecting: a tab that claims the caret (Search,
-            // Notes) would otherwise put it on a still-hidden view, and the
-            // stranded-focus guard would immediately hand it back to a pane.
-            toggleSidebar()
-            sidebar.select(tab: tab)
-        } else if sidebar.selectedTab == tab {
-            toggleSidebar()
-        } else {
-            sidebar.select(tab: tab)
-        }
-    }
-
     // Cmd-Shift-F: reveal the sidebar's Search tab and put the cursor in its
     // pattern field.
     func focusProjectSearch() {
-        if sidebar.isHidden {
-            sidebar.isHidden = false
-            layoutSidebarSplit()
-            UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
-        }
+        revealSidebar()
         sidebar.showSearch()
     }
 
@@ -108,19 +118,6 @@ extension TerminalWindowController {
         }
     }
 
-    // The sidebar keeps its width; the pane tree absorbs all window resizing.
-    func layoutSidebarSplit() {
-        let bounds = sidebarSplit.bounds
-        if sidebar.isHidden {
-            paneTreeHost.frame = bounds
-            return
-        }
-        let width = min(max(sidebar.frame.width, SidebarView.minWidth), SidebarView.maxWidth)
-        sidebar.frame = NSRect(x: 0, y: 0, width: width, height: bounds.height)
-        let treeX = width + sidebarSplit.dividerThickness
-        paneTreeHost.frame = NSRect(x: treeX, y: 0, width: max(0, bounds.width - treeX), height: bounds.height)
-    }
-
     // MARK: - Project files & viewer tabs
 
     // The index for the project the user is actually in right now (the focused
@@ -141,6 +138,7 @@ extension TerminalWindowController {
                 // that folder — feed the sidebar's project switcher.
                 FavoritesStore.shared.noteRecentFolder(index.root)
                 sidebar.recentFolders.currentRoot = index.root
+                refreshWindowSubtitle()
             }
         }
         return index
@@ -170,11 +168,7 @@ extension TerminalWindowController {
         applySidebarPin(path)
         UserDefaults.standard.set(path, forKey: DefaultsKey.sidebarPinnedRoot)
         // Show the result: unhide the sidebar if needed and land on Files.
-        if sidebar.isHidden {
-            sidebar.isHidden = false
-            layoutSidebarSplit()
-            UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
-        }
+        revealSidebar()
         if showFiles {
             sidebar.select(tab: .files)
         }
@@ -189,6 +183,7 @@ extension TerminalWindowController {
         sidebar.gitView.configure(displayRoot: path)
         FavoritesStore.shared.noteRecentFolder(path)
         sidebar.recentFolders.currentRoot = path
+        refreshWindowSubtitle()
     }
 
     // Picking a worktree from either switcher (Files-tab footer, Git-tab
@@ -275,25 +270,18 @@ extension TerminalWindowController {
         sidebar.fileBrowser.configure(index: index)
         sidebar.gitView.configure(displayRoot: index.root)
         sidebar.recentFolders.currentRoot = index.root
+        refreshWindowSubtitle()
     }
 
     // Reveal the Notes tab (palette) and put the caret in it.
     func showNotes() {
-        if sidebar.isHidden {
-            sidebar.isHidden = false
-            layoutSidebarSplit()
-            UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
-        }
+        revealSidebar()
         sidebar.select(tab: .notes)
     }
 
     // Reveal the Source Control tab (rail icon, ⌃⌘G, palette).
     func showGit() {
-        if sidebar.isHidden {
-            sidebar.isHidden = false
-            layoutSidebarSplit()
-            UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
-        }
+        revealSidebar()
         sidebar.select(tab: .git)
     }
 
@@ -306,21 +294,13 @@ extension TerminalWindowController {
 
     // Reveal the Background tab — Suit's own operations log (rail icon, palette).
     func showBackgroundLog() {
-        if sidebar.isHidden {
-            sidebar.isHidden = false
-            layoutSidebarSplit()
-            UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
-        }
+        revealSidebar()
         sidebar.select(tab: .ops)
     }
 
     // Reveal the Bookmarks tab (palette).
     func showBookmarks() {
-        if sidebar.isHidden {
-            sidebar.isHidden = false
-            layoutSidebarSplit()
-            UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
-        }
+        revealSidebar()
         sidebar.select(tab: .bookmarks)
     }
 

@@ -58,7 +58,7 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
     // first row.
     private static let gutterWidth: CGFloat = 20
 
-    private let headerLabel = SidebarTitle.label("SEARCH")
+    private let headerLabel = SidebarTitle.label("Search")
     private let refreshButton = NSButton(frame: .zero)
     private let clearButton = NSButton(frame: .zero)
     private let viewModeButton = NSButton(frame: .zero)

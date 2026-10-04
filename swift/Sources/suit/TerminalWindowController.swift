@@ -23,16 +23,13 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     // would make ⌃- in one window pull another window's file up in this one.
     let navigationHistory = NavigationHistory()
 
-    private var rootContainer: WindowRootView!
-
-    // The activity bar (the far-left icon strip), the sidebar panel it drives,
-    // and the split that puts that panel beside the pane tree. The bar is not in
-    // the split — it's a sibling laid out by rootContainer, so Cmd-B can hide
-    // the sidebar out from under it. The pane tree lives in its own filling
-    // container rather than directly in the root, so tree-surgery
-    // replaceSubview calls never have to know about the sidebar split around them.
-    var activityBar: ActivityBarView!
-    var sidebarSplit: NSSplitView!
+    // The sidebar panel and the pane tree, as the two items of AppKit's own
+    // sidebar split (WindowSplitViewController), with the unified toolbar over
+    // both. The pane tree lives in its own filling container rather than
+    // directly in the content item, so tree-surgery replaceSubview calls never
+    // have to know about the split around them.
+    var splitController: WindowSplitViewController!
+    var toolbar: WindowToolbar!
     var sidebar: SidebarView!
     var paneTreeHost: RootContainerView!
 
@@ -98,11 +95,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         window.delegate = self
         observeFirstResponder()
 
-        rootContainer = WindowRootView(frame: frame)
         paneTreeHost = RootContainerView(frame: frame)
-        // The well margin: cards float on the darker window ground rather
-        // than tiling it edge to edge (see RootContainerView.contentInset).
-        paneTreeHost.contentInset = Theme.Metrics.wellInset
 
         let restored = restorePaneTree(saved: saved, adopted: adopted)
         let fallbackPane = installPaneTree(restoredRoot: restored.root)
@@ -133,10 +126,12 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     private static func makeWindow(frame: NSRect) -> NSWindow {
         let window = NSWindow(
             contentRect: frame,
-            // A regular title bar owns window dragging (and shows the active
-            // tab's title); the strip is its own row below it, so a tab drag
-            // can never turn into a window move.
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            // Full-size content: the system sidebar runs up behind the traffic
+            // lights. The unified toolbar still owns window dragging (and shows
+            // the active tab's title), and the pane tree starts below it at the
+            // content item's safe area, so a tab drag can never turn into a
+            // window move.
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -148,6 +143,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         window.isReleasedWhenClosed = false
         // One tab system: the strip. Never let AppKit graft its own on top.
         window.tabbingMode = .disallowed
+        window.toolbarStyle = .unified
         return window
     }
 
@@ -224,7 +220,6 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         let savedWidth = UserDefaults.standard.double(forKey: DefaultsKey.sidebarWidth)
         let sidebarWidth = savedWidth > 0 ? CGFloat(savedWidth) : SidebarView.defaultWidth
         sidebar = SidebarView(frame: NSRect(x: 0, y: 0, width: sidebarWidth, height: frame.height))
-        sidebar.isHidden = !UserDefaults.standard.bool(forKey: DefaultsKey.sidebarVisible)
 
         projectIndex = FileIndex.shared(forDirectory: startDirectory)
         sidebar.fileBrowser.configure(index: projectIndex)
@@ -300,10 +295,10 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         sidebar.gitView.onShowUpstreamDiff = { [weak self] root, branch in
             self?.openUpstreamDiff(root: root, branch: branch)
         }
-        // The rail icon carries the changed-file count, so a dirty tree is
-        // visible even with the sidebar collapsed.
+        // The toolbar's Source Control button carries the changed-file count,
+        // so a dirty tree is visible even with the sidebar collapsed.
         sidebar.gitView.onChangeCountChanged = { [weak self] count in
-            self?.activityBar?.setBadge(count, for: .git)
+            self?.toolbar?.setChangeCount(count)
         }
         sidebar.gitView.onOpenDiff = { [weak self] root, path in
             self?.openGitDiff(root: root, file: path)
@@ -398,40 +393,37 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         }
     }
 
-    // The activity bar beside the sidebar split, both inside the root view.
+    // The sidebar and the pane tree into AppKit's sidebar split, and the
+    // toolbar over both.
     private func assembleRootView(frame: NSRect) {
-        let split = SuitSplitView(frame: frame)
-        split.isVertical = true
-        split.dividerStyle = .thin
-        // The sidebar is a floating card now, so the divider beside it paints
-        // the well and vanishes into the gutter (see SuitSplitView.isWellSeam);
-        // it still carries the resize drag.
-        split.isWellSeam = true
-        split.delegate = self
-        sidebarSplit = split
-        sidebarSplit.addArrangedSubview(sidebar)
-        sidebarSplit.addArrangedSubview(paneTreeHost)
-
-        // The bar renders the sidebar's selection and reports clicks back into
-        // it; seed it from the restored tab, which SidebarView.init set without
-        // going through select(tab:), so onTabChange hasn't fired for it.
-        activityBar = ActivityBarView(
-            frame: NSRect(x: 0, y: 0, width: ActivityBarView.width, height: frame.height)
-        )
-        activityBar.selectedTab = sidebar.selectedTab
-        activityBar.onSelect = { [weak self] tab in self?.activateSidebarTab(tab) }
-        sidebar.onTabChange = { [weak self] tab in self?.activityBar.selectedTab = tab }
+        let content = PaneTreeHostView(host: paneTreeHost)
+        content.frame = frame
+        splitController = WindowSplitViewController(sidebar: sidebar, content: content)
+        splitController.onToggleSidebar = { [weak self] in self?.toggleSidebar() }
+        splitController.onSidebarWidthChange = { width in
+            UserDefaults.standard.set(Double(width), forKey: DefaultsKey.sidebarWidth)
+        }
         sidebar.onFocusEscaped = { [weak self] in self?.returnFocusToPane() }
 
-        rootContainer.addSubview(activityBar)
-        rootContainer.addSubview(sidebarSplit)
-        rootContainer.activityBar = activityBar
-        rootContainer.body = sidebarSplit
-        rootContainer.layoutParts()
-        layoutSidebarSplit()
+        toolbar = WindowToolbar()
+        window.toolbar = toolbar.toolbar
 
-        window.contentView = rootContainer
-        window.backgroundColor = Theme.well
+        let savedWidth = UserDefaults.standard.double(forKey: DefaultsKey.sidebarWidth)
+        window.contentViewController = splitController
+        // contentViewController sizes the window to the controller's view;
+        // put the window back to the frame it was built with.
+        window.setContentSize(frame.size)
+        window.center()
+        splitController.view.layoutSubtreeIfNeeded()
+        // The width first, so a sidebar restored collapsed comes back at it.
+        // The collapsed state only takes once the split is installed and laid
+        // out — set on the item before that, AppKit drops it — and the window
+        // is not on screen yet, so a hidden sidebar never flashes open.
+        splitController.setSidebarWidth(savedWidth > 0 ? CGFloat(savedWidth) : SidebarView.defaultWidth)
+        splitController.sidebarItem.isCollapsed = !UserDefaults.standard.bool(forKey: DefaultsKey.sidebarVisible)
+        refreshWindowSubtitle()
+
+        window.backgroundColor = Theme.barChrome
     }
 
     // A restored window: its saved frame, the focus it had, and the divider

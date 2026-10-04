@@ -27,10 +27,9 @@ extension Theme.Palette {
     // MARK: - Suit originals
 
     /// The default. Refreshed in the materials redesign: the grounds stepped
-    /// cooler and a touch deeper (barChrome doubles as the frost wash over the
-    /// sidebar's blur material now — see Theme.chromeTint — so it wants a hue,
-    /// not a grey), the text ramp came up a step for contrast against the
-    /// translucent chrome, and the amber accent cleaned up toward gold. The
+    /// cooler and a touch deeper (barChrome carries the pane headers and wants
+    /// a hue, not a grey), the text ramp came up a step for contrast, and the
+    /// amber accent cleaned up toward gold. The
     /// syntax and diff tokens are untouched — the viewer's color language
     /// predates the redesign and survived it.
     static let suitDark = Theme.Palette(

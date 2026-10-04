@@ -169,7 +169,7 @@ final class BookmarksView: NSView, NSTableViewDataSource, NSTableViewDelegate, N
     // The tab's title band, shared with every other sidebar tab.
     private static let headerHeight = SidebarTitle.height
 
-    private let headerLabel = SidebarTitle.label("BOOKMARKS")
+    private let headerLabel = SidebarTitle.label("Bookmarks")
     private let listScrollView = NSScrollView(frame: .zero)
     private let tableView = BookmarkTableView(frame: .zero)
     private let emptyLabel = NSTextField(labelWithString: "")

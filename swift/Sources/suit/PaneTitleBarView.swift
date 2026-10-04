@@ -2,8 +2,9 @@ import Cocoa
 
 // The slim viewport header (browser-tab model): icon + title on the left,
 // Claude session dot and context % on the right. It labels what the pane is
-// showing — the strip is the single source of tabs — and doubles as the drag
-// handle for rearranging whole panes.
+// showing and doubles as the drag handle for rearranging whole panes. When the
+// pane owns two or more tabs, the tabs sit over its leading area
+// (PaneContainerView) and the title steps aside — see showsTitle.
 final class PaneTitleBarView: NSView, NSDraggingSource {
     weak var pane: Pane?
     private let iconView = NSImageView(frame: .zero)
@@ -13,16 +14,37 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
     private let dirtyDot = NSView(frame: .zero)
     private var mouseDownLocation: NSPoint?
 
+    // Where the trailing indicators begin: the tabs, when shown, take the
+    // header up to here. Set by layoutBar().
+    private(set) var leadingAreaMaxX: CGFloat = 0
+    // Fired when an indicator appears or goes, so the container can give the
+    // tabs the new width.
+    var onTrailingChromeChange: (() -> Void)?
+
+    // Off while the pane's tabs occupy the leading area: the active tab already
+    // names what the pane shows.
+    var showsTitle = true {
+        didSet {
+            iconView.isHidden = !showsTitle
+            label.isHidden = !showsTitle
+        }
+    }
+
+    // Set from Pane.refreshBorder (through the container): the focused pane's
+    // header carries the accent rule and full-strength text; the others recede.
+    var focusState: PaneContainerView.FocusState = .alone {
+        didSet {
+            guard focusState != oldValue else { return }
+            applyTextColors()
+            needsDisplay = true
+        }
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        // Flat bar chrome, replacing the .titlebar vibrancy. The top corners
-        // match the card's continuous curve so the band and the container clip
-        // to one shape.
+        // Flat bar chrome. A flush rectangle like the pane under it.
         wantsLayer = true
         layer?.backgroundColor = Theme.barChrome.cgColor
-        layer?.cornerRadius = Theme.Metrics.paneCornerRadius
-        layer?.cornerCurve = .continuous
-        layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
 
         iconView.imageScaling = .scaleProportionallyDown
         iconView.contentTintColor = Theme.textDim
@@ -64,16 +86,31 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         fatalError("init(coder:) has not been implemented")
     }
 
-    // A hairline along the bottom edge, so the header is a band with a floor
-    // rather than a title floating over whatever is below it. The header, the
-    // in-pane tab bar and (for a viewer or a dashboard) the content itself all
-    // sit on the same `barChrome`-adjacent ground; without the rule the three
-    // run together and the pane has no visible internal structure. The tab bar
-    // draws the matching rule under itself, so a pane with 2+ tabs reads as
-    // header │ tabs │ content.
+    // A rule along the bottom edge, so the header is a band with a floor
+    // rather than a title floating over whatever is below it — the header and
+    // (for a viewer or a dashboard) the content sit on near grounds, and
+    // without the rule the two run together. In the focused pane of a split
+    // the rule is the accent, at focusBorderWidth: the one mark that says
+    // where the caret is.
     override func draw(_ dirtyRect: NSRect) {
-        Theme.hairline.setFill()
-        NSRect(x: 0, y: 0, width: bounds.width, height: 1).fill()
+        if focusState == .focused {
+            Theme.focusBorder.setFill()
+            NSRect(x: 0, y: 0, width: bounds.width, height: Theme.Metrics.focusBorderWidth).fill()
+        } else {
+            Theme.hairline.setFill()
+            NSRect(x: 0, y: 0, width: bounds.width, height: 1).fill()
+        }
+    }
+
+    private func applyTextColors() {
+        let color: NSColor
+        switch focusState {
+        case .focused: color = Theme.textPrimary
+        case .alone: color = Theme.textDim
+        case .unfocused: color = Theme.textFaint
+        }
+        iconView.contentTintColor = color
+        label.textColor = color
     }
 
     var title: String = "" {
@@ -134,8 +171,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
     // track a value (the context meter's fuel-gauge color, the status dot).
     func reapplyTheme() {
         layer?.backgroundColor = Theme.barChrome.cgColor
-        iconView.contentTintColor = Theme.textDim
-        label.textColor = Theme.textDim
+        applyTextColors()
         dirtyDot.layer?.backgroundColor = Theme.accent.cgColor
         if let pct = contextPct {
             contextLabel.textColor = Theme.contextLevelColor(pct)
@@ -179,7 +215,7 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         needsDisplay = true
     }
 
-    private func layoutBar() {
+    func layoutBar() {
         let iconSize = Theme.Metrics.paneHeaderIconSize
         iconView.frame = NSRect(x: 9, y: (bounds.height - iconSize) / 2, width: iconSize, height: iconSize)
 
@@ -203,6 +239,10 @@ final class PaneTitleBarView: NSView, NSDraggingSource {
         let left = iconView.frame.maxX + 6
         label.frame = NSRect(x: left, y: (bounds.height - 14) / 2, width: max(0, right - left), height: 14)
         window?.invalidateCursorRects(for: self)
+        if right != leadingAreaMaxX {
+            leadingAreaMaxX = right
+            onTrailingChromeChange?()
+        }
     }
 
     // MARK: - Pane drag source

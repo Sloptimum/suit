@@ -6,7 +6,7 @@ import Cocoa
 // tab reads as "project identity + actions on top, tree below" with nothing
 // stacked underneath.
 //
-// Title row: "FILES", plus the right-aligned action buttons — search (switches
+// Title row: "Files", plus the right-aligned action buttons — search (switches
 // to the Search tab), choose folder, and unpin while pinned. Name row: the
 // browsed root's name, with a pin glyph when it is pinned rather than following
 // the focused pane. Branch row (only inside a git repo): the checked-out branch as
@@ -22,7 +22,7 @@ import Cocoa
 // more than "12 branches" — the counts are still one hover (or one click into
 // the switcher menu) away.
 final class ProjectHeaderView: NSView {
-    // "FILES" — the tab's own title, above the project identity, so a click on
+    // "Files" — the tab's own title, above the project identity, so a click on
     // the activity bar's folder icon confirms itself (see SidebarTitle). The
     // header's action buttons ride on this row rather than the name row, which
     // is how the Search tab's header is arranged and keeps the band from being
@@ -46,7 +46,7 @@ final class ProjectHeaderView: NSView {
     // Prompt for a name, then create/checkout the branch.
     var onNewBranch: ((_ root: String) -> Void)?
 
-    private let titleLabel = SidebarTitle.label("FILES")
+    private let titleLabel = SidebarTitle.label("Files")
     private let iconView = NSImageView(frame: .zero)
     private let nameLabel = NSTextField(labelWithString: "")
     private let searchButton = NSButton(frame: .zero)

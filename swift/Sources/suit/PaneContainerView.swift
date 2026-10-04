@@ -1,14 +1,24 @@
 import Cocoa
 
-// Draws the focus border and lays out the header above the content view,
-// both inset so the border is never painted over by the terminal's own
-// (possibly Metal-backed) rendering.
+// A pane's one band of chrome above its content: the header, which shows the
+// pane's title — or, once the pane owns two or more tabs, the tabs themselves,
+// in the same row. The header's trailing indicators (unsaved dot, Claude
+// session dot, context meter) stay at the right end either way.
+//
+// The tabs used to be a second row under a header that repeated the active
+// tab's name; one row is what a Mac tab bar looks like (Safari, Finder,
+// Xcode's editor tabs), and it gives the content 31pt back.
 final class PaneContainerView: NSView {
-    static let inset: CGFloat = 3
     static let titleBarHeight = Theme.Metrics.paneHeaderHeight
 
+    // What the header says about focus — see Pane.refreshBorder, its one writer.
+    enum FocusState {
+        case alone, focused, unfocused
+    }
+
     let titleBar = PaneTitleBarView(frame: .zero)
-    // The in-pane tab bar, below the header; visible only with 2+ owned tabs.
+    // The in-pane tabs, over the header's leading area; visible only with 2+
+    // owned tabs.
     let tabBar = PaneTabBarView(frame: .zero)
     private var tabBarVisible = false
     weak var pane: Pane?
@@ -23,8 +33,12 @@ final class PaneContainerView: NSView {
 
         addSubview(content)
         addSubview(titleBar)
+        // Above the header, so a click on a tab reaches the tab; a click on
+        // the bar's empty end falls through to the header (PaneTabBarView
+        // .hitTest), which is the pane's drag handle.
         tabBar.isHidden = true
         addSubview(tabBar)
+        titleBar.onTrailingChromeChange = { [weak self] in self?.layoutInterior() }
 
         flashOverlay.wantsLayer = true
         flashOverlay.layer?.backgroundColor = NSColor.white.cgColor
@@ -38,7 +52,7 @@ final class PaneContainerView: NSView {
         dropIndicator.layer?.backgroundColor = Theme.accent.withAlphaComponent(0.25).cgColor
         dropIndicator.layer?.borderColor = Theme.accent.cgColor
         dropIndicator.layer?.borderWidth = 2
-        dropIndicator.layer?.cornerRadius = Theme.Metrics.paneCornerRadius
+        dropIndicator.layer?.cornerRadius = Theme.Metrics.dropPreviewRadius
         dropIndicator.layer?.cornerCurve = .continuous
         dropIndicator.isHidden = true
         addSubview(dropIndicator)
@@ -66,26 +80,34 @@ final class PaneContainerView: NSView {
     }
 
     private func layoutInterior() {
-        let insetRect = bounds.insetBy(dx: Self.inset, dy: Self.inset)
-        titleBar.frame = NSRect(x: insetRect.minX, y: insetRect.maxY - Self.titleBarHeight, width: insetRect.width, height: Self.titleBarHeight)
-        let barHeight = tabBarVisible ? PaneTabBarView.height : 0
-        tabBar.frame = NSRect(x: insetRect.minX, y: insetRect.maxY - Self.titleBarHeight - barHeight, width: insetRect.width, height: barHeight)
-        let contentFrame = NSRect(x: insetRect.minX, y: insetRect.minY, width: insetRect.width, height: insetRect.height - Self.titleBarHeight - barHeight)
+        let header = NSRect(x: 0, y: bounds.maxY - Self.titleBarHeight, width: bounds.width, height: Self.titleBarHeight)
+        titleBar.frame = header
+        // The header lays out its trailing indicators first; the tabs get
+        // everything to their left.
+        titleBar.layoutBar()
+        tabBar.frame = NSRect(x: 0, y: header.minY, width: min(titleBar.leadingAreaMaxX, header.width), height: header.height)
+        let contentFrame = NSRect(x: 0, y: 0, width: bounds.width, height: max(0, bounds.height - Self.titleBarHeight))
         content.frame = contentFrame
         screensaver?.frame = contentFrame
         flashOverlay.frame = bounds
     }
 
-    // Feeds the in-pane tab bar. Toggling its visibility re-lays the content out
-    // (the bar steals PaneTabBarView.height when it appears).
+    // Feeds the in-pane tabs. With two or more, they take the header's
+    // leading area and the header stops showing its own title.
     func setTabBar(tabs: [Tab], active: Tab) {
         let shouldShow = tabBar.wantsDisplay(for: tabs)
         tabBar.configure(tabs: tabs, activeId: active.id)
         if shouldShow != tabBarVisible {
             tabBarVisible = shouldShow
             tabBar.isHidden = !shouldShow
+            titleBar.showsTitle = !shouldShow
             layoutInterior()
         }
+    }
+
+    func setFocusState(_ state: FocusState) {
+        titleBar.focusState = state
+        tabBar.isDimmed = state == .unfocused
     }
 
     // Swaps which tab's view fills the container (below the title bar,
@@ -159,7 +181,7 @@ final class PaneContainerView: NSView {
     private func indicatorFrame(forTabTarget target: TabDropTarget) -> NSRect {
         switch target {
         case .show:
-            return bounds.insetBy(dx: Self.inset, dy: Self.inset)
+            return bounds
         case .edge(let zone):
             return indicatorFrame(for: zone)
         }
@@ -183,7 +205,7 @@ final class PaneContainerView: NSView {
     }
 
     private func indicatorFrame(for zone: PaneDropZone) -> NSRect {
-        let area = bounds.insetBy(dx: Self.inset, dy: Self.inset)
+        let area = bounds
         switch zone {
         case .swap:
             return area

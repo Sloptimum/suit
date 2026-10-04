@@ -119,6 +119,26 @@ extension AppDelegate {
     // Existing panes are moved by the window controllers (Pane.reapplyTheme),
     // which make the same comparison per pane; this covers the default that new
     // panes and new windows will start from.
+    // The app's appearance follows the active theme's lightness: .aqua for a
+    // light palette, .darkAqua for a dark one. The system chrome — the sidebar
+    // material, the toolbar, menus, alerts, scrollers — then agrees with the
+    // tokens drawn beside it. It used to be pinned dark for every theme, which
+    // put a dark system sidebar beside a light theme's panes once the sidebar
+    // became AppKit's own. Following the theme rather than the macOS setting
+    // is deliberate: the theme is what the user picked for this app.
+    func startFollowingThemeAppearance() {
+        applyThemeAppearance()
+        NotificationCenter.default.addObserver(
+            forName: Theme.didChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.applyThemeAppearance()
+        }
+    }
+
+    private func applyThemeAppearance() {
+        NSApp.appearance = NSAppearance(named: Theme.current.isLight ? .aqua : .darkAqua)
+    }
+
     func startObservingThemeForDefaults() {
         NotificationCenter.default.addObserver(
             forName: Theme.didChange, object: nil, queue: .main

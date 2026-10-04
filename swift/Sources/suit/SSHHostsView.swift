@@ -49,7 +49,7 @@ final class SSHHostsView: NSView, NSTableViewDataSource, NSTableViewDelegate, NS
     // Receives the clicked host; the window controller opens the SSH tab.
     var onConnect: ((SSHHost) -> Void)?
 
-    private let headerLabel = SidebarTitle.label("SSH HOSTS")
+    private let headerLabel = SidebarTitle.label("SSH Hosts")
     private let addButton = NSButton(frame: .zero)
     private let scrollView = NSScrollView(frame: .zero)
     private let tableView = NSTableView(frame: .zero)

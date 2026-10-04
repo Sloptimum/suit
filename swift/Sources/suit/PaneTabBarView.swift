@@ -4,12 +4,14 @@ import Cocoa
 // failed dot, and a hover-revealed close box. Purely visual + local hit
 // resolution; the bar routes select/close/context back to the pane's host.
 final class PaneTabChipView: NSView, NSDraggingSource {
-    static let height: CGFloat = 26
+    // Fits the 29pt header with three points above and below, so the active
+    // chip reads as a tab sitting in the bar rather than a button filling it.
+    static let height: CGFloat = 23
     static let minWidth: CGFloat = 70
     static let maxWidth: CGFloat = 180
     // The chip's rounded rect — shared by the active fill and the hover fill
     // so the two states are one shape.
-    static let radius: CGFloat = 7
+    static let radius: CGFloat = 6
 
     private(set) var tabId: String = ""
     var onSelect: ((String) -> Void)?
@@ -29,6 +31,7 @@ final class PaneTabChipView: NSView, NSDraggingSource {
     private let sessionDot = NSView(frame: .zero)
 
     private var isActive = false
+    private var isDimmed = false
     private var isHovered = false
     private var showsDot = false
 
@@ -63,17 +66,22 @@ final class PaneTabChipView: NSView, NSDraggingSource {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configure(tab: Tab, active: Bool) {
+    // dimmed: the chip's pane is not the focused one, so even its active tab
+    // steps back to the dim text — the header's focus language, carried
+    // into the tabs that cover it.
+    func configure(tab: Tab, active: Bool, dimmed: Bool) {
         self.tab = tab
         tabId = tab.id
         toolTip = tab.title
         isActive = active
+        isDimmed = dimmed
 
+        let strong = active && !dimmed
         iconView.image = NSImage(systemSymbolName: tab.kind.symbolName, accessibilityDescription: nil)
-        iconView.contentTintColor = active ? Theme.textPrimary : Theme.textDim
+        iconView.contentTintColor = strong ? Theme.textPrimary : Theme.textDim
 
         label.stringValue = tab.title
-        label.textColor = tab.failed ? Theme.failed : (active ? Theme.textPrimary : Theme.textDim)
+        label.textColor = tab.failed ? Theme.failed : (strong ? Theme.textPrimary : Theme.textDim)
         label.font = tab.isPreview
             ? NSFontManager.shared.convert(Theme.tabTitleFont, toHaveTrait: .italicFontMask)
             : Theme.tabTitleFont
@@ -109,21 +117,19 @@ final class PaneTabChipView: NSView, NSDraggingSource {
     // every cached color (icon/label tints, the session dot) re-reads its token.
     func reapplyTheme() {
         guard let tab else { return }
-        configure(tab: tab, active: isActive)
+        configure(tab: tab, active: isActive, dimmed: isDimmed)
     }
 
+    // The active tab is a raised rounded surface in the bar, as in Safari's
+    // and Finder's tab bars; the accent stays with the header's focus rule,
+    // so it marks one thing — the focused pane — rather than every pane's
+    // current tab.
     override func draw(_ dirtyRect: NSRect) {
-        let body = bounds.insetBy(dx: 1, dy: 2)
+        let body = bounds.insetBy(dx: 1, dy: 0)
         if isActive {
             let path = NSBezierPath(roundedRect: body, xRadius: Self.radius, yRadius: Self.radius)
             Theme.raised.setFill()
             path.fill()
-            Theme.hairline.setStroke()
-            path.lineWidth = 1
-            path.stroke()
-            // Accent underline anchors the active chip.
-            Theme.accent.setFill()
-            NSBezierPath(roundedRect: NSRect(x: body.minX + 5, y: body.minY, width: body.width - 10, height: 2), xRadius: 1, yRadius: 1).fill()
         } else if isHovered {
             let path = NSBezierPath(roundedRect: body, xRadius: Self.radius, yRadius: Self.radius)
             Theme.hover.setFill()
@@ -271,13 +277,15 @@ final class PaneTabChipView: NSView, NSDraggingSource {
     }
 }
 
-// A pane's own tab bar (the tabs-on-the-pane model): a slim row of chips
-// directly under the pane header, listing every tab the pane owns and switching
+// A pane's own tab bar (the tabs-on-the-pane model): a row of chips in the
+// pane header's leading area, listing every tab the pane owns and switching
 // between them. Hidden unless the pane holds more than one tab, so a
-// single-tab pane looks exactly as before. There is no window-level strip;
+// single-tab pane shows its plain header. There is no window-level strip;
 // this and the sidebar Sessions tab together replace it.
+//
+// It draws no ground and no floor of its own: it sits *in* the header, which
+// paints both (PaneTitleBarView).
 final class PaneTabBarView: NSView {
-    static let height: CGFloat = 31
     private static let gap: CGFloat = 3
     private static let inset: CGFloat = 5
 
@@ -292,22 +300,36 @@ final class PaneTabBarView: NSView {
     // it — its rounded border already marks both of those boundaries.
     private var activeId: String?
 
+    // The pane is not the focused one (PaneContainerView.setFocusState).
+    var isDimmed = false {
+        didSet {
+            guard isDimmed != oldValue else { return }
+            for tab in order {
+                chips[tab.id]?.configure(tab: tab, active: tab.id == activeId, dimmed: isDimmed)
+            }
+        }
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        wantsLayer = true
-        layer?.backgroundColor = Theme.barChrome.cgColor
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    // Live theme switch: re-set the flat bar ground baked in at init and
-    // re-theme every chip; the bottom hairline redraws from the token live.
+    // Live theme switch: re-theme every chip; the separators redraw from the
+    // token live.
     func reapplyTheme() {
-        layer?.backgroundColor = Theme.barChrome.cgColor
         for chip in chips.values { chip.reapplyTheme() }
         needsDisplay = true
+    }
+
+    // Only the chips take clicks. The rest of the row belongs to the header
+    // underneath — the pane's drag handle and its click-to-focus.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        return hit === self ? nil : hit
     }
 
     // Whether the bar should take vertical space (only with 2+ tabs).
@@ -347,7 +369,7 @@ final class PaneTabBarView: NSView {
                 chips[tab.id] = chip
                 addSubview(chip)
             }
-            chip.configure(tab: tab, active: tab.id == activeId)
+            chip.configure(tab: tab, active: tab.id == activeId, dimmed: isDimmed)
         }
         for (id, chip) in chips where !seen.contains(id) {
             chip.removeFromSuperview()
@@ -381,9 +403,7 @@ final class PaneTabBarView: NSView {
         needsDisplay = true
     }
 
-    // Two rules: a hairline along the bottom so the bar reads as a distinct
-    // band above the content the way the header does above it, and a short
-    // vertical hairline in each gap between chips.
+    // A short vertical hairline in each gap between chips.
     //
     // Only the active chip draws a ground of its own; every inactive one is
     // transparent, so a row of four tabs used to be four titles floating on one
@@ -393,8 +413,6 @@ final class PaneTabBarView: NSView {
     // a double line.
     override func draw(_ dirtyRect: NSRect) {
         Theme.hairline.setFill()
-        NSRect(x: 0, y: 0, width: bounds.width, height: 1).fill()
-
         // Inset from the chip's own top and bottom so the rule is a divider
         // between two labels, not a full-height grid line.
         let inset: CGFloat = 5

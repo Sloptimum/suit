@@ -86,7 +86,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         case unstageAll
     }
 
-    // "SOURCE CONTROL" above the branch row — the tab's own title, on the band
+    // "Source Control" above the branch row — the tab's own title, on the band
     // every sidebar tab opens with (SidebarTitle). The branch row already carries
     // four affordances at sidebar width, so the title takes a row of its own
     // rather than squeezing in beside them.
@@ -97,7 +97,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     // — a couple of rows plus its section header, enough to still be a list.
     private static let minListHeight: CGFloat = 90
 
-    private let titleLabel = SidebarTitle.label("SOURCE CONTROL")
+    private let titleLabel = SidebarTitle.label("Source Control")
     private let branchIcon = NSImageView(frame: .zero)
     let branchButton = NSButton(frame: .zero)
     private let markerButton = NSButton(frame: .zero)
