@@ -1,48 +1,40 @@
 import Cocoa
 
 // The window's left panel, toggled with Cmd-B: Files / Search / Source Control
-// / Sessions / SSH Hosts / Notes (in that order — see `railOrder`), picked from
-// the ActivityBarView strip to its left. The icons used to be a horizontal rail
-// inside this view's own top edge; they moved out to the activity bar so they
-// survive a Cmd-B collapse, but the tab *model* stayed here — this view still
-// owns the enum, the rail order and the persisted selection, and the bar is a
-// dumb renderer of `selectedTab`.
+// / Sessions / SSH Hosts / Notes / Background (in that order — see `railOrder`),
+// picked with the segmented control across its top. This view owns the tab
+// model: the enum, the order, the persisted selection.
 //
-// Since the materials redesign the panel is a *card*, not a slab: everything
-// lives in one rounded continuous-corner container (`card`) floating on the
-// window's well, the same shape language as the pane cards — frost inside,
-// 1pt hairline ring outside, wellInset margins on the edges the well shows
-// through (left, top, bottom). The right edge stays flush to this view's
-// bounds: the split divider next to it paints the well (SuitSplitView
-// .isWellSeam) and the pane tree adds its own wellInset, so the visible gap to
-// the first pane card comes out one hairline over the margin everywhere else —
-// close enough to read as the same gutter, without teaching RootContainerView
-// per-edge insets. The card never wears the accent focus ring: rings answer
-// "which pane owns the caret", and the sidebar is chrome, not a pane.
+// The panel draws no ground of its own. It is the view of the window's system
+// sidebar item (WindowSplitViewController), so the material behind it — Liquid
+// Glass on macOS 26 and later, edge to edge on 27 — is AppKit's, and follows
+// the window's appearance. Everything inside is laid out on a clear ground.
+// It used to be a hand-made frosted card floating on a painted well beside a
+// VS Code-style icon strip; both were drawings of what the system sidebar
+// already is.
+//
+// The picker is the Xcode navigator's answer to "which panel": a row of icon
+// segments at the top of the panel itself. It goes away with the panel on ⌘B,
+// which the strip was built to avoid — the toolbar's Source Control badge now
+// carries the one signal that has to survive a collapse, and the palette and
+// the shortcuts bring back any tab.
 //
 // The Files tab is the FileBrowserView, whole;
 // Search is the SearchView (project-wide find and replace), which used to be an
 // overlay over that tree and is now its own tab directly below it. Source
 // Control is the GitView (changes, staging, commit, sync, branches). Sessions
 // hosts the SessionsView (the open-tabs overview), SSH the SSHHostsView, and
-// Notes the NotesView. Bookmarks has no rail tab; its BookmarksView is reached
+// Notes the NotesView. Bookmarks has no segment; its BookmarksView is reached
 // on demand through the palette (see `railOrder`).
 final class SidebarView: NSView {
     static let defaultWidth: CGFloat = 240
     static let minWidth: CGFloat = 180
     static let maxWidth: CGFloat = 420
 
-    // A hairline of margin above the tab content, now measured from the card's
-    // top edge rather than the window's. The inset was 16pt back when a tab
-    // opened straight onto its first row — Files' folder name, a search field —
-    // and needed something between that and the window's top edge. Every tab
-    // now opens with a SidebarTitle band (28pt of mostly-empty chrome by
-    // design), which is that separation, so the inset went to zero; flush to
-    // the edge read as *too* tight. 5pt is the smallest value that lifts it off
-    // without bringing the old stacked-gap problem back. ActivityBarView adds
-    // the same value on top of the card's wellInset margin for its own first
-    // icon, so the strip and the tab content beside it still start on one line.
-    static let topInset: CGFloat = 5
+    // The picker row under the title bar, and the gap between it and the
+    // tab's own title band below.
+    static let pickerHeight: CGFloat = 24
+    static let pickerMargin: CGFloat = 8
 
     enum Tab: Int, CaseIterable {
         case files
@@ -56,7 +48,7 @@ final class SidebarView: NSView {
         case search
         case ops
 
-        // The activity bar's top-to-bottom icon order, independent of rawValue.
+        // The picker's left-to-right segment order, independent of rawValue.
         // Files leads (the primary surface) with Search directly under it — the
         // two halves of one job, and where the eye goes when the tree isn't
         // enough — then Source Control (staging and committing what those two
@@ -69,11 +61,11 @@ final class SidebarView: NSView {
         // destination ("Show Bookmarks" / showBookmarks()) rather than a
         // permanent icon.
         // Background is last: it is the only tab that shows the *app's* work
-        // rather than the user's, so it belongs at the end of the strip — a
+        // rather than the user's, so it belongs at the end of the row — a
         // place you go to ask a question, not one you work out of.
         static let railOrder: [Tab] = [.files, .search, .git, .sessions, .ssh, .notes, .ops]
 
-        // Tooltip / accessibility label; the activity bar shows only the icon.
+        // Tooltip / accessibility label; the picker shows only the icon.
         var label: String {
             switch self {
             case .files: return "Files"
@@ -102,20 +94,15 @@ final class SidebarView: NSView {
 
         var icon: NSImage {
             let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: label)?
-                .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 20, weight: .medium))
+                .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 12, weight: .regular))
             image?.isTemplate = true
             return image ?? NSImage()
         }
     }
 
-    // Read by the controller to seed the activity bar's initial highlight: the
-    // restore below sets this directly rather than through select(tab:), so
-    // onTabChange never fires for it and the bar can't learn it any other way.
+    // The restore in init sets this directly rather than through select(tab:).
     private(set) var selectedTab: Tab = .files
 
-    // Fired on every select(tab:) so the activity bar can follow. Not fired for
-    // the init-time restore — see selectedTab.
-    var onTabChange: ((Tab) -> Void)?
     // Fired when a tab switch would have stranded the caret inside the tab that
     // just went away; the controller hands focus back to a pane. See
     // moveFocusOutOfHiddenTabs().
@@ -130,35 +117,27 @@ final class SidebarView: NSView {
     let opsLogView = OpsLogView(frame: .zero)
     let recentFolders = RecentFoldersView(frame: .zero)
     let usageFooter = ClaudeUsageFooterView(frame: .zero)
-    private let backdrop = ChromeBackdropView(frame: .zero)
-    // The rounded container everything sits in — the panel's whole identity as
-    // a floating card. Clips with a continuous curve at the panes' radius so a
-    // scrolled file tree or the usage footer can't square the corners out, and
-    // wears the permanent 1pt hairline ring of an unfocused pane card.
-    private let card = NSView(frame: .zero)
+    private let picker = NSSegmentedControl(frame: .zero)
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
-        card.wantsLayer = true
-        card.layer?.cornerRadius = Theme.Metrics.paneCornerRadius
-        card.layer?.cornerCurve = .continuous
-        card.layer?.masksToBounds = true
-        card.layer?.borderWidth = 1
-        card.layer?.borderColor = Theme.hairline.cgColor
-        addSubview(card)
+        picker.segmentCount = Tab.railOrder.count
+        picker.trackingMode = .selectOne
+        picker.segmentDistribution = .fillEqually
+        picker.controlSize = .regular
+        for (index, tab) in Tab.railOrder.enumerated() {
+            picker.setImage(tab.icon, forSegment: index)
+            picker.setToolTip(tab.label, forSegment: index)
+            picker.setImageScaling(.scaleProportionallyDown, forSegment: index)
+        }
+        picker.target = self
+        picker.action = #selector(pickerChanged)
+        addSubview(picker)
 
-        // The frosted sidebar ground (materials redesign): behind-window blur
-        // washed with the palette's chrome hue, the same material as the
-        // activity bar beside it. First subview of the card, so every tab
-        // composites over it; rounded to the card's own radius because the
-        // blur region is shaped by the window server, not by our clip.
-        backdrop.cornerRadius = Theme.Metrics.paneCornerRadius
-        card.addSubview(backdrop)
-
-        // A stale persisted value (e.g. from a build with more tabs, or the
-        // icon-less Git tab) falls back to Files rather than landing on a
-        // tab with no icon in the activity bar to switch back from.
+        // A stale persisted value (e.g. from a build with more tabs) falls
+        // back to Files rather than landing on a tab with no segment in the
+        // picker to switch back from.
         let saved = UserDefaults.standard.integer(forKey: DefaultsKey.sidebarTab)
         let restored = Tab(rawValue: saved) ?? .files
         selectedTab = Tab.railOrder.contains(restored) ? restored : .files
@@ -168,20 +147,20 @@ final class SidebarView: NSView {
         // other), and Escape on an empty search field walks back to the tree.
         fileBrowser.onSearch = { [weak self] in self?.showSearch() }
         searchView.onDismiss = { [weak self] in self?.select(tab: .files) }
-        card.addSubview(fileBrowser)
-        card.addSubview(searchView)
-        card.addSubview(notesView)
-        card.addSubview(gitView)
-        card.addSubview(sshHostsView)
-        card.addSubview(bookmarksView)
-        card.addSubview(sessionsView)
-        card.addSubview(opsLogView)
+        addSubview(fileBrowser)
+        addSubview(searchView)
+        addSubview(notesView)
+        addSubview(gitView)
+        addSubview(sshHostsView)
+        addSubview(bookmarksView)
+        addSubview(sessionsView)
+        addSubview(opsLogView)
 
         // The project switcher sits below the tab content, on every tab, and
         // the Claude Code usage footer sits at the very bottom below it.
-        card.addSubview(recentFolders)
+        addSubview(recentFolders)
         recentFolders.onHeightChange = { [weak self] in self?.layoutContents() }
-        card.addSubview(usageFooter)
+        addSubview(usageFooter)
         usageFooter.onHeightChange = { [weak self] in self?.layoutContents() }
 
         updateTabContent()
@@ -198,18 +177,18 @@ final class SidebarView: NSView {
         selectedTab = tab
         UserDefaults.standard.set(tab.rawValue, forKey: DefaultsKey.sidebarTab)
         updateTabContent()
-        onTabChange?(tab)
     }
 
-    // Live theme switch: re-set the frosted ground and the card's hairline
-    // ring baked in at init; the rest of the sidebar's draw-based chrome is
-    // repainted by the controller's recursive needsDisplay sweep. The activity
-    // bar re-tints its own icons — applyTheme() calls it alongside this. The
-    // Search tab's controls carry tints set at init for the same reason, so
-    // they are re-read here too.
+    @objc private func pickerChanged() {
+        guard Tab.railOrder.indices.contains(picker.selectedSegment) else { return }
+        select(tab: Tab.railOrder[picker.selectedSegment])
+    }
+
+    // Live theme switch: the sidebar's draw-based chrome is repainted by the
+    // controller's recursive needsDisplay sweep, and the picker and the
+    // material are AppKit's, following the window's appearance. The Search
+    // tab's controls carry tints set at init, so they are re-read here.
     func reapplyTheme() {
-        card.layer?.borderColor = Theme.hairline.cgColor
-        backdrop.reapplyTheme()
         searchView.reapplyTheme()
         // Same reason: the Source Control tab's header tints and the commit
         // box's layer ground are baked in at init.
@@ -229,32 +208,35 @@ final class SidebarView: NSView {
         layoutContents()
     }
 
+    // The safe area's top is the title bar and toolbar the sidebar runs under;
+    // it changes without a resize (full screen, a toolbar that appears), so the
+    // layout runs again whenever it does.
+    override func layout() {
+        super.layout()
+        layoutContents()
+    }
+
     // Manual layout, consistent with the pane tree around it (Auto Layout and
     // NSSplitView's frame management don't mix well — see SettingsWindowController).
     private func layoutContents() {
-        // The card floats: well margins on the three edges where the window
-        // ground shows (the split divider + the pane tree's own inset make the
-        // right-hand gutter — see the header comment), everything else inside.
-        card.frame = NSRect(
-            x: Theme.Metrics.wellInset,
-            y: Theme.Metrics.wellInset,
-            width: max(0, bounds.width - Theme.Metrics.wellInset),
-            height: max(0, bounds.height - Theme.Metrics.wellInset * 2)
+        let inner = bounds
+        let top = inner.height - safeAreaInsets.top
+        let margin = Self.pickerMargin
+        picker.frame = NSRect(
+            x: margin, y: top - Self.pickerHeight,
+            width: max(0, inner.width - margin * 2), height: Self.pickerHeight
         )
-        let inner = card.bounds
-        backdrop.frame = inner
         let usageHeight = usageFooter.desiredHeight
         usageFooter.frame = NSRect(x: 0, y: 0, width: inner.width, height: usageHeight)
         let foldersHeight = recentFolders.isHidden ? 0 : recentFolders.desiredHeight
         recentFolders.frame = NSRect(x: 0, y: usageHeight, width: inner.width, height: foldersHeight)
         let footerHeight = usageHeight + foldersHeight
-        // Flush to the card's top edge: the tab's own title band is the margin
-        // now (see topInset).
+        // Below the picker; the tab's own title band is the margin after it.
         let contentFrame = NSRect(
             x: 0,
             y: footerHeight,
             width: inner.width,
-            height: max(0, inner.height - footerHeight - Self.topInset)
+            height: max(0, picker.frame.minY - margin / 2 - footerHeight)
         )
         fileBrowser.frame = contentFrame
         searchView.frame = contentFrame
@@ -267,6 +249,9 @@ final class SidebarView: NSView {
     }
 
     private func updateTabContent() {
+        // Bookmarks has no segment: the picker shows no selection rather
+        // than a wrong one.
+        picker.selectedSegment = Tab.railOrder.firstIndex(of: selectedTab) ?? -1
         fileBrowser.isHidden = selectedTab != .files
         searchView.isHidden = selectedTab != .search
         notesView.isHidden = selectedTab != .notes
@@ -296,8 +281,10 @@ final class SidebarView: NSView {
     // controller calls this itself). Only Source Control cares today: it skips
     // the loads only it draws while hidden — its branch list, feedback gather
     // and gh passes all shell out — so becoming visible is what asks for them.
+    // The ancestor check, not isHidden: a collapsed sidebar item hides the
+    // split's arranged view, which may be a container AppKit puts around this one.
     func shownTabDidBecomeVisible() {
-        guard !isHidden, selectedTab == .git else { return }
+        guard !isHiddenOrHasHiddenAncestor, selectedTab == .git else { return }
         gitView.sidebarTabDidBecomeVisible()
     }
 

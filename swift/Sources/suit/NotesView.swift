@@ -81,7 +81,7 @@ final class NotesView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMen
     // The tab's title band, shared with every other sidebar tab.
     private static let headerHeight = SidebarTitle.height
 
-    private let headerLabel = SidebarTitle.label("NOTES")
+    private let headerLabel = SidebarTitle.label("Notes")
     private let addButton = NSButton(frame: .zero)
     private let listScrollView = NSScrollView(frame: .zero)
     private let tableView = NoteTableView(frame: .zero)

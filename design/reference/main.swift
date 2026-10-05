@@ -7,8 +7,8 @@ import Cocoa
 // up in review diffs instead of user reports.
 
 _ = NSApplication.shared
-// applicationDidFinishLaunching doesn't run here; pin the committed-dark
-// appearance the way the app does.
+// applicationDidFinishLaunching doesn't run here; set the appearance the app
+// would pick for the default (dark) theme.
 NSApp.appearance = NSAppearance(named: .darkAqua)
 let delegate = AppDelegate()
 
@@ -28,6 +28,16 @@ func pump(_ s: TimeInterval) {
     while Date() < end { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
 }
 
+// The sidebar is part of the chrome under review, so it is shown — pinned to
+// the fixture folder below, and with render-reference.sh running this under a
+// sandboxed $HOME, so the render never carries the machine's real files,
+// account name or recent folders. Set here, not left to the defaults domain,
+// so every run draws the same panel.
+UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
+UserDefaults.standard.set(Double(SidebarView.defaultWidth), forKey: DefaultsKey.sidebarWidth)
+UserDefaults.standard.set(SidebarView.Tab.files.rawValue, forKey: DefaultsKey.sidebarTab)
+UserDefaults.standard.removeObject(forKey: DefaultsKey.sidebarPinnedRoot)
+
 delegate.newWindow(nil)
 guard let c = NSApp.windows.compactMap({ $0.delegate as? TerminalWindowController }).first else {
     FileHandle.standardError.write(Data("no window controller\n".utf8))
@@ -35,6 +45,11 @@ guard let c = NSApp.windows.compactMap({ $0.delegate as? TerminalWindowControlle
 }
 c.window.setFrame(NSRect(x: 0, y: 0, width: 1280, height: 800), display: true)
 pump(1.5)
+c.pinSidebar(toDirectory: fixture)
+// The window opened on NSHomeDirectory(), which ignores the sandboxed $HOME,
+// and noted it as a recent folder; drop it so the account name stays out.
+FavoritesStore.shared.removeRecentFolder(NSHomeDirectory())
+pump(0.5)
 
 // Pinned terminal, a second shell, the sample file split beside it.
 if let first = c.store.tabs.first {
@@ -58,7 +73,9 @@ for tab in c.store.tabs where tab.content is TerminalPaneContent {
 pump(0.3)
 
 let out = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "design/phase15-window.png"
-if let view = c.window.contentView {
+// The theme frame, not the content view: the toolbar and the traffic lights
+// are part of the chrome under review, and they live in the frame.
+if let view = c.window.contentView?.superview {
     view.layoutSubtreeIfNeeded()
     if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
         view.cacheDisplay(in: view.bounds, to: rep)

@@ -187,10 +187,10 @@ final class SessionsView: NSView {
     var onSelectTab: ((String) -> Void)?
     var onCloseTab: ((String) -> Void)?
 
-    // "SESSIONS" — the tab's own title, on the band every sidebar tab opens with
+    // "Sessions" — the tab's own title, on the band every sidebar tab opens with
     // (SidebarTitle). Distinct from `headerLabels` below, which caption the
     // per-pane groups inside the list.
-    private let titleLabel = SidebarTitle.label("SESSIONS")
+    private let titleLabel = SidebarTitle.label("Sessions")
     private let scrollView = NSScrollView(frame: .zero)
     private let documentView = FlippedView(frame: .zero)
     private var rowViews: [SessionRowView] = []

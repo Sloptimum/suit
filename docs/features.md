@@ -22,14 +22,15 @@ app does.
 ## Tabs & panes — tabs live on the pane
 
 - **Tabs on the pane** — every terminal, file, diff and transcript is a tab that belongs to a
-  pane. When a pane holds more than one tab, an in-pane tab bar appears directly under its
-  header to switch between them; a single-tab pane shows no bar. There is no window-level tab
+  pane. When a pane holds more than one tab, its tabs take the place of the title in the pane's
+  header row — one row, as in Safari or Finder — with the header's unsaved / session / context
+  indicators still at the right end; a single-tab pane shows its plain title. There is no window-level tab
   strip. ⌘T opens a fresh shell in the focused pane, ⌘W closes the active tab (a busy tab
   confirms first — the dialog's bold headline names the tab being closed), ⇧⌘T reopens,
   ⌘1–9 jump (⌘9 = last), ⌃Tab is a most-recently-used switcher (hold ⌃ to pick, quick tap to
   toggle the last two). Opening a file, diff, or transcript adds a tab to the focused pane's
   group.
-- **Sessions sidebar** — the sidebar's Sessions tab (second in the activity bar, after Files) lists every
+- **Sessions sidebar** — the sidebar's Sessions tab (fourth in the sidebar's picker) lists every
   open tab in the window, grouped by the pane (screen) that owns it — the cross-pane overview that
   replaces the old strip. Click a row to bring that tab forward in its pane; its close box
   shuts it. Session dots (busy / pulsing needs-input / done) and red failure dots show right
@@ -85,18 +86,20 @@ app does.
 
 ### Files & sidebar
 
-- **Activity bar** — a full-height icon strip pinned to the window's far-left edge, holding the
-  sidebar's tabs: Files, Search, Source Control, Sessions, SSH Hosts and Notes, top to bottom. It
-  stays put when the sidebar is collapsed, so clicking any icon reopens the sidebar on that tab.
-  Clicking the icon of the tab you're already on collapses the sidebar again (as ⌘B does). The
-  Source Control icon carries a count badge of the changed files in the shown repo, so a dirty
-  tree is visible with the sidebar closed.
-- **Sidebar** (⌘B) — the panel beside the activity bar, showing the selected tab. Every tab opens
-  with its own title — FILES, SEARCH, SOURCE CONTROL, SESSIONS, SSH HOSTS, NOTES, BOOKMARKS —
-  since the activity bar itself shows icons only; the title row also carries that tab's header
-  actions (the Files header's buttons, Search's toolbar, the + on Notes and SSH Hosts), and it
-  follows a live theme switch. That row starts flush with the panel's top edge — it is the margin,
-  so no blank band sits above it — and the activity bar's first icon starts on the same line.
+- **Window and toolbar** — the window is a standard macOS sidebar window: a unified toolbar holds
+  the sidebar button over the sidebar, the window title (the focused tab) with the sidebar's
+  folder as its subtitle (`~` for the home directory), and on the right **Source Control**,
+  **Split Screen**, **New Tab** and **Command Palette** buttons — each runs the same command as
+  its menu item. The Source Control button carries a count badge of the changed files in the
+  shown repo, so a dirty tree is visible with the sidebar closed.
+- **Sidebar** (⌘B, the toolbar's sidebar button, or **View ▸ Toggle Sidebar**) — AppKit's own
+  sidebar: Liquid Glass running full height under the title bar, with the traffic lights over it
+  and the system collapse animation (off under Reduce Motion). Drag its edge to resize it
+  (180–420pt), or past its minimum to collapse it; the width and the shown/hidden state persist. A segmented picker across its top
+  switches tabs: Files, Search, Source Control, Sessions, SSH Hosts, Notes and Background, left to
+  right. Every tab opens with its own title in title case — Files, Search, Source Control, … —
+  and that title row also carries the tab's header actions (the Files header's buttons,
+  Search's toolbar, the + on Notes and SSH Hosts).
 - **Files tab** — leads with a single project header: the title row's search / choose-folder /
   unpin actions, the folder name below it (a pin glyph when pinned), and, inside a repo, a branch
   row carrying the branch switcher, the upstream sync badge and the git actions menu — then gives
@@ -122,7 +125,7 @@ app does.
   (`.claude`, `.github`, `.gitignore`) are shown like any other row — inside a repo because
   `git ls-files` reports them, outside one because the fallback walk indexes them too, pruning
   only noise (`.git`, `.Trash`, `node_modules`, `.DS_Store`).
-- **Project search** (⇧⌘F, the activity bar's magnifier, or the Files header's magnifier) — its own
+- **Project search** (⇧⌘F, the sidebar picker's magnifier, or the Files header's magnifier) — its own
   sidebar tab directly below Files, so searching never costs you sight of the file tree and your
   matches are still there when you come back to it. Live ripgrep, laid out like VS Code's search
   panel: **Aa** (match case), **ab** (match whole word, `rg -w`) and **.\*** (regular expression)
@@ -393,7 +396,7 @@ app does.
   restoration (scroll / zoom / page) work unchanged.
 - **Bookmarks** — pin a specific `file:line` with ⇧⌘L (or click the gutter) — an amber tick
   shows in the viewer gutter and minimap. The palette's **Show Bookmarks** opens the sidebar's
-  bookmarks list (it has no activity-bar icon); Enter or
+  bookmarks list (it has no segment in the sidebar's picker); Enter or
   double-click reopens the file at that line, right-click renames or removes. Saved in
   `~/.suit/bookmarks.json`, shared across windows, dead paths pruned automatically.
 
@@ -443,7 +446,7 @@ app does.
   Refresh) available on it. The diff is taken against the merge base (`origin/main...main`), so a
   branch that's both ahead and behind reads as *your work* rather than as reversed upstream
   commits. The counts come from the last fetch, not the network — **Fetch** refreshes them.
-- **Source Control tab** (⌃⌘G, the activity bar's branch icon, or **Show Source Control** in the
+- **Source Control tab** (⌃⌘G, the toolbar's or the sidebar picker's branch icon, or **Show Source Control** in the
   palette) — the whole local git loop in the sidebar. Top to bottom: the tab title, a **branch row** (the
   worktree/branch switcher, plus the ⚑ marker, ± full-diff and commit-graph buttons), a **sync
   row** (the upstream badge and a ⋯ actions menu — the same fetch/pull/push/stash/branches set the
@@ -676,27 +679,24 @@ app does.
 
 ## Appearance & settings
 
-- **The materials look** — the window is layered like a first-party Mac app. The activity bar
-  sits on a frosted behind-window material, pinned flush to the window's left edge: the desktop
-  blurs through, washed with the active theme's `barChrome` hue so every palette keeps its
-  identity over the glass (offscreen renders show the material's flat fallback instead — no
-  desktop to sample). Everything else floats as **cards**: continuous-corner rounded surfaces
-  (10pt) on a *well* — the window ground taken one step darker than the theme's `bg` — with a
-  6pt margin against the window edges and 6pt gutters between splits. The sidebar is a card too,
-  carrying the same frosted material inside its rounded shape and a permanent 1pt hairline ring;
-  it never takes the accent ring, which answers "which pane owns the caret" and so belongs to
-  panes alone. The focused pane card wears that 2pt accent ring; every other pane card a 1pt
-  hairline (with a single pane, no ring at all). Both the well and the frost wash are derived
-  from existing tokens, so all fourteen built-in themes and any imported `.suittheme` get the
-  look without a new field.
+- **A native window** — the window is built from AppKit's own parts, so it looks and behaves
+  like a first-party Mac app: a unified toolbar, a system sidebar (Liquid Glass, edge to edge on
+  macOS 27) and panes that tile the rest of the window as flush rectangles, separated by a 1pt
+  hairline in the theme's `hairline` token — the way Xcode's editors and Terminal's splits sit.
+  With two or more panes, the focused one is marked by a 2pt accent rule under its header and
+  full-strength header text, while the other panes' headers dim; a single pane shows neither.
+  The app's appearance follows the active theme: a light theme gets the light system appearance
+  (sidebar, toolbar, menus, alerts, scrollers), a dark theme the dark one — whatever the macOS
+  setting is.
 - **Hack ships with the app** — [Hack](https://sourcefoundry.org/hack) v3.003 (Regular, Bold,
   Italic, Bold Italic) is bundled in `Suit.app/Contents/Resources/fonts` and registered into the
   process at launch, so it's the default for terminals, file viewers, diffs, and transcripts on a
   machine where nothing was ever installed — and it shows up in the font picker whether or not you
   have it system-wide. Picking another font in **Settings ▸ Appearance** overrides it permanently:
   the first launch after Hack shipped moves you off the old system-monospaced default *once*, and
-  never touches a font you chose yourself (including switching back to SF Mono). Chrome — sidebar
-  labels, badges, line numbers — deliberately stays on the system monospaced font. Hack is MIT +
+  never touches a font you chose yourself (including switching back to SF Mono). Chrome — badges,
+  line numbers — deliberately stays on the system monospaced font; sidebar headings use the
+  system font, as Mac sidebars do. Hack is MIT +
   Bitstream Vera licensed; the license ships alongside the TTFs.
 - **Settings** (⌘,) — a category sidebar (macOS System-Settings style) with one pane per topic,
   so only the settings you're changing are on screen: **Appearance** (font and default size,
@@ -726,16 +726,10 @@ app does.
   "Ember" (#21100A), with Dracula, Nord and Solarized Dark at their published values. All stay
   dark enough that dim ANSI text keeps its contrast. The same list backs the screensaver's
   background menu.
-- **Section boundaries** — between surfaces the boundary is the well itself: the darker ground
-  shows in the gutter between the activity bar and the sidebar card, between the sidebar card and
-  the pane cards (where the split's thin divider paints the well too, so dragging to resize still
-  works but no line crosses the gutter), and between panes. The activity bar's icons carry no
-  rules between them — the hover square is already the cell boundary — and the bar itself needs
-  no edge rule since the well now separates it from everything to its right. Inside a card,
-  hairlines in the active theme's `hairline` token keep the internal structure: the sidebar
-  card's ring, a rule under the pane header, and a rule between adjacent tabs in its tab bar
-  (skipped beside the active tab, whose own border already marks that edge). Everything follows
-  a theme switch live, gutters included.
+- **Section boundaries** — hairlines in the active theme's `hairline` token: between panes, a
+  rule under each pane header, and a rule between adjacent tabs in a header (skipped beside the
+  active tab, whose raised ground already marks that edge). The edge between the sidebar and the
+  panes is the system sidebar's own. Everything follows a theme switch live.
 
 ## Themes
 

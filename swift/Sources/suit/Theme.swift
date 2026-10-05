@@ -3,8 +3,10 @@ import Cocoa
 // The visual design system: every color, metric, and type
 // decision from the approved design artifact, in one namespace. Components
 // never state their own hex or magic padding — they read tokens from here.
-// The app is committed dark (the window pins .darkAqua); these are not
-// dynamic system colors on purpose.
+// The app's appearance follows the active palette's lightness (AppDelegate
+// sets .aqua or .darkAqua on every switch), so the system chrome — the sidebar
+// material, the toolbar, menus, scrollers — agrees with the tokens. The tokens
+// themselves are not dynamic system colors, on purpose: a theme states them.
 //
 // Colors are no longer fixed: every color token is a computed var reading the
 // active `Palette` (`Theme.current`), so themes are swappable at runtime while
@@ -34,28 +36,10 @@ enum Theme {
 
     /// Window/content ground — also the default viewer/diff background.
     static var bg: NSColor { current.bg }
-    /// The ground the pane cards float on: `bg` taken one deepened() step
-    /// down, showing in the margin around the pane tree and in the gutters
-    /// between cards. Derived, not a token — it must track `bg` exactly or
-    /// the well and the cards drift apart on custom themes.
-    ///
-    /// A ground with no room left below it (Obsidian's #000000, and any custom
-    /// theme that goes to black) would take that step and land on itself,
-    /// which erases the whole floating-card language: margin, gutters and
-    /// cards would all be the same black. Those themes go *up* toward their own
-    /// hairline instead — the direction is what has to flex, not the idea. Half
-    /// the distance, so the gutter still reads as a recess rather than as a
-    /// second border beside each card's own.
-    static var well: NSColor {
-        let ground = current.bg
-        let deeper = deepened(ground)
-        guard Palette.hex(deeper) == Palette.hex(ground) else { return deeper }
-        return blend(ground, toward: current.hairline, fraction: 0.5)
-    }
     /// Terminal ground: a step darker than the chrome, so shell output sits
     /// in its own deeper layer.
     static var terminalBg: NSColor { current.terminalBg }
-    /// Bar chrome: tab strip, pane headers, sidebar rail.
+    /// Bar chrome: pane headers, the band under the toolbar.
     static var barChrome: NSColor { current.barChrome }
     /// Raised/active surface — the active tab.
     static var raised: NSColor { current.raised }
@@ -78,20 +62,13 @@ enum Theme {
     /// Amber — focus borders, visible-tab ticks, switcher selection, drop
     /// indicators. Replaces controlAccentColor everywhere in the chrome.
     static var accent: NSColor { current.accent }
-    /// The pane focus ring: accent at 85%, drawn at focusBorderWidth. The ring
-    /// is the one place the chrome spends real accent weight, so it carries
-    /// nearly full strength — at the old 70% it read as a stain on the card
-    /// edge rather than a state.
+    /// The focused pane's marker: accent at 85%, the rule under its header,
+    /// drawn at focusBorderWidth. It is the one place the chrome spends real
+    /// accent weight, so it carries nearly full strength — at 70% it read as a
+    /// stain rather than a state.
     static var focusBorder: NSColor { accent.withAlphaComponent(0.85) }
     /// Amber-tinted row selection (sidebar lists, search results).
     static var selection: NSColor { accent.withAlphaComponent(0.22) }
-    /// The wash ChromeBackdropView paints over its blur material: the palette's
-    /// bar chrome carried at partial alpha, so the frosted sidebar world keeps
-    /// the theme's hue while the desktop leaks through underneath. Derived
-    /// rather than a 27th token: a theme that stated it opaque would just be
-    /// turning the material off, and every existing theme gets the frost from
-    /// the barChrome it already declares.
-    static var chromeTint: NSColor { barChrome.withAlphaComponent(0.72) }
 
     /// Project-search hits in an open file: the wash behind every occurrence of
     /// the Search tab's pattern, and the minimap tick that answers "where else
@@ -222,23 +199,13 @@ enum Theme {
 
         static let paneHeaderHeight: CGFloat = 29
         static let paneHeaderIconSize: CGFloat = 12
-        /// The pane card: a continuous-curve corner big enough that a pane
-        /// reads as a surface floating on the window ground, not a rectangle
-        /// with the corners filed off. Everything that mirrors a pane's shape
-        /// (the drop preview, the header's top corners) takes the same value,
-        /// and PaneContainerView clips to it so content can't square them out.
-        static let paneCornerRadius: CGFloat = 10
-        /// The focused card's ring; unfocused cards fall back to a 1pt
-        /// hairline (see Pane.refreshBorder — the two widths are a state, not
-        /// a constant).
+        /// The drop preview's corner: a pane is a flush rectangle in the split
+        /// tree now, and the preview of where a dragged tab lands is the one
+        /// shape drawn over it, rounded just enough to read as an overlay.
+        static let dropPreviewRadius: CGFloat = 6
+        /// The focused pane's accent rule under its header (see
+        /// Pane.refreshBorder).
         static let focusBorderWidth: CGFloat = 2
-        /// The well margin: how far every floating card stands off the window
-        /// edges and off its neighbors — the pane tree's contentInset, the
-        /// sidebar card's margins, and the activity bar's first-icon offset all
-        /// read this one value so the grounds line up. Matches the pane splits'
-        /// gutter (SuitSplitView.gutterThickness) on purpose: one rhythm for
-        /// every gap the well shows through.
-        static let wellInset: CGFloat = 6
 
         static let overlayRadius: CGFloat = 14
         static let switcherRowHeight: CGFloat = 32
@@ -262,11 +229,11 @@ enum Theme {
     /// Uppercase letter-spaced captions in overlays.
     static let captionFont = NSFont.monospacedSystemFont(ofSize: 9, weight: .semibold)
     static let captionKern: CGFloat = 0.8
-    /// The sidebar tabs' own titles ("FILES", "SEARCH", …) — the caption one
-    /// step up, because it heads a whole panel rather than a row inside it.
+    /// The sidebar tabs' own titles ("Files", "Search", …): a sidebar
+    /// section heading, in the system font the way Finder and Mail head theirs.
     /// See SidebarTitle, which is where every tab reads it from.
-    static let sidebarTitleFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
-    static let sidebarTitleKern: CGFloat = 0.9
+    static let sidebarTitleFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
+    static let sidebarTitleKern: CGFloat = 0
 
     /// 0xRRGGBB → NSColor. Internal (not fileprivate) so color tables outside
     /// this file — the pane background presets in `Pane.swift` — can state their

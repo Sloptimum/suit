@@ -187,32 +187,15 @@ extension TerminalWindowController {
     }
 
     // MARK: - NSSplitViewDelegate
+    //
+    // Only the pane-tree splits come here; the sidebar split belongs to
+    // WindowSplitViewController, which sets its own limits on the sidebar item.
 
     func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
-        if splitView === sidebarSplit { return SidebarView.minWidth }
-        return proposedMinimumPosition + (splitView.isVertical ? minPaneWidth : minPaneHeight)
+        proposedMinimumPosition + (splitView.isVertical ? minPaneWidth : minPaneHeight)
     }
 
     func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
-        if splitView === sidebarSplit { return SidebarView.maxWidth }
-        return proposedMaximumPosition - (splitView.isVertical ? minPaneWidth : minPaneHeight)
-    }
-
-    // The pane-tree splits keep NSSplitView's default proportional resizing;
-    // the sidebar split instead pins the sidebar's width so window resizes go
-    // entirely to the pane tree.
-    func splitView(_ splitView: NSSplitView, resizeSubviewsWithOldSize oldSize: NSSize) {
-        if splitView === sidebarSplit {
-            layoutSidebarSplit()
-        } else {
-            splitView.adjustSubviews()
-        }
-    }
-
-    func splitViewDidResizeSubviews(_ notification: Notification) {
-        // Persist the width the user dragged the sidebar to.
-        guard notification.object as? NSSplitView === sidebarSplit,
-              !sidebar.isHidden, sidebar.frame.width >= SidebarView.minWidth else { return }
-        UserDefaults.standard.set(Double(sidebar.frame.width), forKey: DefaultsKey.sidebarWidth)
+        proposedMaximumPosition - (splitView.isVertical ? minPaneWidth : minPaneHeight)
     }
 }

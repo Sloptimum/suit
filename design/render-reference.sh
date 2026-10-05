@@ -10,4 +10,11 @@ swiftc -O -j "$(sysctl -n hw.ncpu 2>/dev/null || echo 4)" \
   design/reference/main.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') \
   -o /tmp/suit-design-reference
-/tmp/suit-design-reference design/phase15-window.png
+# A sandboxed $HOME: the sidebar shows, and it must read no real ~/.suit
+# (recent folders) or ~/.claude (usage) — see design/reference/main.swift.
+sandbox="$(mktemp -d)"
+trap 'rm -rf "$sandbox"' EXIT
+# The shells are real login shells: without a prompt of our own, zsh's
+# default prints user@host into the picture.
+echo "PROMPT='%# '" > "$sandbox/.zshrc"
+HOME="$sandbox" /tmp/suit-design-reference design/phase15-window.png

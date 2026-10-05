@@ -146,16 +146,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     weak var paletteFileIndex: FileIndex?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Committed dark: the design artifact is one
-        // deliberate dark world, not a system-theme chameleon. Pinning the
-        // app-wide appearance keeps every system control — menus, alerts,
-        // scrollers, panels — consistent with the Theme chrome.
-        NSApp.appearance = NSAppearance(named: .darkAqua)
         // Load the persisted theme selection into Theme.current before any
         // window is built, so the app opens already skinned (no flash of the
         // default palette). Safe to run this early — ThemeStore depends only on
         // Theme.swift and the filesystem.
         ThemeStore.shared.applySelectedThemeAtLaunch()
+        // Then the system appearance to match it, before the first window too.
+        startFollowingThemeAppearance()
         NotificationCenter.default.addObserver(
             self, selector: #selector(fileIndexUpdated(_:)),
             name: FileIndex.didUpdate, object: nil
