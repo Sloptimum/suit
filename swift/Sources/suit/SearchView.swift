@@ -1,7 +1,7 @@
 import Cocoa
 
 // The sidebar's Search tab: project-wide find *and* replace, on its own
-// activity-bar icon directly below Files.
+// picker segment directly after Files.
 //
 // It used to be half of the Files tab — a bar that dropped over the file tree on
 // ⌘⇧F and handed the tab back on Escape. Sharing one tab meant search could never
@@ -39,7 +39,7 @@ final class SearchView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate, 
     // label for the status line. nil falls back to doing nothing (no project).
     var scopeResolver: ((SearchScope) -> (root: String, label: String)?)?
     // Escape on an already-empty field asks to leave the tab (the sidebar sends
-    // it back to Files). The tab has no ✕ of its own: the activity bar is how a
+    // it back to Files). The tab has no ✕ of its own: the sidebar's picker is how a
     // tab is left, and a second close affordance would just disagree with it.
     var onDismiss: (() -> Void)?
     // Fired after a replace rewrote files, so the window can refresh what it

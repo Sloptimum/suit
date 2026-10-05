@@ -95,7 +95,7 @@ app does.
 - **Sidebar** (⌘B, the toolbar's sidebar button, or **View ▸ Toggle Sidebar**) — AppKit's own
   sidebar: Liquid Glass running full height under the title bar, with the traffic lights over it
   and the system collapse animation (off under Reduce Motion). Drag its edge to resize it
-  (180–420pt); the width and the shown/hidden state persist. A segmented picker across its top
+  (180–420pt), or past its minimum to collapse it; the width and the shown/hidden state persist. A segmented picker across its top
   switches tabs: Files, Search, Source Control, Sessions, SSH Hosts, Notes and Background, left to
   right. Every tab opens with its own title in title case — Files, Search, Source Control, … —
   and that title row also carries the tab's header actions (the Files header's buttons,

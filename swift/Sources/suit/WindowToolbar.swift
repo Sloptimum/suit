@@ -10,7 +10,7 @@ import Cocoa
 // implementation per verb, and AppKit validates the button exactly as it
 // validates the menu item. The toolbar owns no state but the badge count.
 //
-// The Source Control badge is what took over from the activity bar's corner
+// The Source Control badge is what took over from the old icon strip's corner
 // count: it is the one signal that has to stay on screen while the sidebar is
 // collapsed (a dirty tree you can't see is the reason the count exists), and
 // the toolbar is the chrome that survives ⌘B.

@@ -8,8 +8,8 @@ import Cocoa
 // own version of every surface the system already provides. A sidebar item is
 // what makes the window read as a Mac app rather than a port of one: it gets
 // the system's Liquid Glass sidebar (edge to edge on macOS 27), the traffic
-// lights over it, the toolbar's tracking separator, the collapse animation and
-// the View ▸ Show Sidebar plumbing, all with no drawing code here. The window is
+// lights over it, the toolbar's tracking separator and the collapse
+// animation, all with no drawing code here. The window is
 // full-size-content, so the sidebar runs under the title bar; the content item
 // keeps the pane tree below it through its safe area (see PaneTreeHostView).
 //
@@ -18,17 +18,26 @@ import Cocoa
 // to — the same contract the old split delegate enforced by hand.
 //
 // Policy stays in the window controller. AppKit's toggleSidebar(_:) reaches
-// this object through the responder chain (the toolbar button, a menu item with
-// a nil target); it hands the gesture to `onToggleSidebar`, so persistence and
-// the "don't strand the caret in a collapsing panel" rule live in one place.
+// this object through the responder chain (the toolbar's sidebar button); it
+// hands the gesture to `onToggleSidebar`. A collapse or an expand from *any*
+// source — that button, ⌘B, a reveal, or a drag of the divider past the
+// sidebar's minimum, which AppKit turns into a collapse — is reported once
+// through `onCollapsedChange`, so persistence and the "don't strand the caret
+// in a collapsing panel" rule live in one place.
 final class WindowSplitViewController: NSSplitViewController {
     let sidebarItem: NSSplitViewItem
     let contentItem: NSSplitViewItem
 
     var onToggleSidebar: (() -> Void)?
     // The sidebar's width after a user drag (never while collapsed), so the
-    // controller can persist it.
+    // controller can persist it. Fired only when it changes: the split reports
+    // every frame of an animation and every window resize.
     var onSidebarWidthChange: ((CGFloat) -> Void)?
+    // The sidebar collapsed (true) or came back (false).
+    var onCollapsedChange: ((Bool) -> Void)?
+
+    private var lastReportedWidth: CGFloat = 0
+    private var lastCollapsed = false
 
     init(sidebar: NSView, content: NSView) {
         let sidebarController = NSViewController()
@@ -64,13 +73,28 @@ final class WindowSplitViewController: NSSplitViewController {
         splitView.setPosition(clamped, ofDividerAt: 0)
     }
 
+    // Sets the collapsed state the window opens with, without reporting it as
+    // a change.
+    func setInitialCollapsed(_ collapsed: Bool) {
+        sidebarItem.isCollapsed = collapsed
+        lastCollapsed = collapsed
+    }
+
     override func toggleSidebar(_ sender: Any?) {
         onToggleSidebar?()
     }
 
+    // Every collapse path ends in a resize of the split — an animated one
+    // included, on its frames — so this is the one place that sees all of them.
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
-        guard !sidebarItem.isCollapsed, sidebarWidth >= SidebarView.minWidth else { return }
+        let collapsed = sidebarItem.isCollapsed
+        if collapsed != lastCollapsed {
+            lastCollapsed = collapsed
+            onCollapsedChange?(collapsed)
+        }
+        guard !collapsed, sidebarWidth >= SidebarView.minWidth, sidebarWidth != lastReportedWidth else { return }
+        lastReportedWidth = sidebarWidth
         onSidebarWidthChange?(sidebarWidth)
     }
 }

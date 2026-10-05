@@ -66,7 +66,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     var onNewBranch: ((String) -> Void)?
     // Open the local↔upstream diff for the checked-out branch.
     var onShowUpstreamDiff: ((_ root: String, _ branch: String) -> Void)?
-    // How many files are changed right now, for the activity bar's badge.
+    // How many files are changed right now, for the toolbar's Source Control badge.
     var onChangeCountChanged: ((Int) -> Void)?
 
     enum Row {
@@ -184,7 +184,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     // What this tab shows splits in two, and the halves want opposite rules:
     //
     //   * The working-tree state comes off the status monitor and is nearly
-    //     free. It also feeds the activity bar's change badge, so it has to
+    //     free. It also feeds the toolbar's change badge, so it has to
     //     stay correct while the tab is hidden — it follows every didUpdate.
     //   * The branch list, the feedback gather and the two `gh pr list` passes
     //     shell out (the last two over the network) and are drawn *only* here.

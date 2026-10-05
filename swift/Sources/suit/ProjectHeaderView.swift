@@ -23,7 +23,7 @@ import Cocoa
 // the switcher menu) away.
 final class ProjectHeaderView: NSView {
     // "Files" — the tab's own title, above the project identity, so a click on
-    // the activity bar's folder icon confirms itself (see SidebarTitle). The
+    // the picker's folder segment confirms itself (see SidebarTitle). The
     // header's action buttons ride on this row rather than the name row, which
     // is how the Search tab's header is arranged and keeps the band from being
     // 28pt of empty space.

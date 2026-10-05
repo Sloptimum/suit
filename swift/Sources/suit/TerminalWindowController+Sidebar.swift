@@ -10,33 +10,49 @@ extension TerminalWindowController {
     var isSidebarCollapsed: Bool { splitController.sidebarItem.isCollapsed }
 
     // ⌘B, the toolbar's sidebar button, View ▸ Toggle Sidebar. Animated, as the
-    // system sidebar is everywhere else; the programmatic reveals below are not,
-    // because they go on to select a tab and place the caret in it.
+    // system sidebar is everywhere else — except under Reduce Motion, where the
+    // state is set directly (the item's animator animates whatever the
+    // context's allowsImplicitAnimation says). The programmatic reveals below
+    // are never animated, because they go on to select a tab and place the
+    // caret in it.
     func toggleSidebar() {
         let collapsing = !isSidebarCollapsed
-        // Collapsing the panel with the caret in it (the Search tab's fields,
-        // Notes) would leave a hidden view holding first responder, which then
-        // eats every keystroke; hand focus back to a pane before it goes.
+        // Hand the caret back to a pane while the panel is still on screen, so
+        // the field it leaves is never a hidden first responder, even for the
+        // length of the animation.
         if collapsing { returnFocusToPane(evenFromSidebar: true) }
-        UserDefaults.standard.set(!collapsing, forKey: DefaultsKey.sidebarVisible)
-        NSAnimationContext.runAnimationGroup({ context in
-            context.allowsImplicitAnimation = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            splitController.sidebarItem.isCollapsed = collapsing
+        } else {
             splitController.sidebarItem.animator().isCollapsed = collapsing
-        }, completionHandler: { [weak self] in
-            // ⌘B changes no selection, so the shown tab has to be told the
-            // panel is back — Source Control defers its loads while hidden.
-            if !collapsing { self?.sidebar.shownTabDidBecomeVisible() }
-        })
+        }
     }
 
     // Shows a collapsed sidebar at once, for the callers that are about to
     // select a tab in it (a tab that claims the caret would otherwise put it
     // on a still-hidden view, and the stranded-focus guard would hand it
-    // straight back to a pane).
+    // straight back to a pane). The select that follows tells the tab it is
+    // visible, so the change handler doesn't do it a second time.
     func revealSidebar() {
         guard isSidebarCollapsed else { return }
+        isRevealingSidebar = true
         splitController.sidebarItem.isCollapsed = false
-        UserDefaults.standard.set(true, forKey: DefaultsKey.sidebarVisible)
+        isRevealingSidebar = false
+    }
+
+    // Every collapse and expand, whatever caused it: the toggle, a reveal, or
+    // a drag of the divider past the sidebar's minimum width (AppKit collapses
+    // the item then; nothing of ours runs before it). Persists the state,
+    // takes the caret out of a panel that is going away — a drag ends a field's
+    // edit and drops first responder to the window — and tells the shown tab
+    // the panel is back, since Source Control defers its loads while hidden.
+    func sidebarCollapsedStateDidChange(_ collapsed: Bool) {
+        UserDefaults.standard.set(!collapsed, forKey: DefaultsKey.sidebarVisible)
+        if collapsed {
+            returnFocusToPane(evenFromSidebar: true)
+        } else if !isRevealingSidebar {
+            sidebar.shownTabDidBecomeVisible()
+        }
     }
 
     // The window's subtitle under the title in the toolbar: the folder the
@@ -279,7 +295,7 @@ extension TerminalWindowController {
         sidebar.select(tab: .notes)
     }
 
-    // Reveal the Source Control tab (rail icon, ⌃⌘G, palette).
+    // Reveal the Source Control tab (toolbar button, picker segment, ⌃⌘G, palette).
     func showGit() {
         revealSidebar()
         sidebar.select(tab: .git)
@@ -292,7 +308,7 @@ extension TerminalWindowController {
         window.makeFirstResponder(sidebar.gitView.commitTextView)
     }
 
-    // Reveal the Background tab — Suit's own operations log (rail icon, palette).
+    // Reveal the Background tab — Suit's own operations log (picker segment, palette).
     func showBackgroundLog() {
         revealSidebar()
         sidebar.select(tab: .ops)

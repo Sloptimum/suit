@@ -29,6 +29,8 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     // directly in the content item, so tree-surgery replaceSubview calls never
     // have to know about the split around them.
     var splitController: WindowSplitViewController!
+    // True while revealSidebar() expands the panel; see sidebarCollapsedStateDidChange.
+    var isRevealingSidebar = false
     var toolbar: WindowToolbar!
     var sidebar: SidebarView!
     var paneTreeHost: RootContainerView!
@@ -403,6 +405,9 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         splitController.onSidebarWidthChange = { width in
             UserDefaults.standard.set(Double(width), forKey: DefaultsKey.sidebarWidth)
         }
+        splitController.onCollapsedChange = { [weak self] collapsed in
+            self?.sidebarCollapsedStateDidChange(collapsed)
+        }
         sidebar.onFocusEscaped = { [weak self] in self?.returnFocusToPane() }
 
         toolbar = WindowToolbar()
@@ -413,14 +418,13 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         // contentViewController sizes the window to the controller's view;
         // put the window back to the frame it was built with.
         window.setContentSize(frame.size)
-        window.center()
         splitController.view.layoutSubtreeIfNeeded()
         // The width first, so a sidebar restored collapsed comes back at it.
         // The collapsed state only takes once the split is installed and laid
         // out — set on the item before that, AppKit drops it — and the window
         // is not on screen yet, so a hidden sidebar never flashes open.
         splitController.setSidebarWidth(savedWidth > 0 ? CGFloat(savedWidth) : SidebarView.defaultWidth)
-        splitController.sidebarItem.isCollapsed = !UserDefaults.standard.bool(forKey: DefaultsKey.sidebarVisible)
+        splitController.setInitialCollapsed(!UserDefaults.standard.bool(forKey: DefaultsKey.sidebarVisible))
         refreshWindowSubtitle()
 
         window.backgroundColor = Theme.barChrome
