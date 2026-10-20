@@ -1,19 +1,19 @@
 import Cocoa
 
-// The title band every sidebar tab opens with — "FILES", "SEARCH", "SOURCE
-// CONTROL", "SESSIONS", "SSH HOSTS", "NOTES", "BOOKMARKS".
+// The title band every sidebar tab opens with — "Files", "Search", "Source
+// Control", "Sessions", "SSH Hosts", "Notes", "Bookmarks", "Background".
 //
 // The Search tab has carried a caption like this since it split off the file
 // tree, and the tabs written after it drifted: Notes, SSH and Bookmarks
 // captioned themselves (each restating the same three type attributes), while
 // Files, Source Control and Sessions announced nothing at all. That reads as an
-// oversight rather than restraint — the activity bar beside the panel shows
-// icons only, so a tab's own title is the only thing that confirms where a click
-// on the strip landed. Every tab now carries one, from here.
+// oversight rather than restraint — the picker above the panel shows icons
+// only, so a tab's own title is the only thing that confirms where a click on
+// it landed. Every tab now carries one, from here.
 //
-// The size is deliberately a step above `Theme.captionFont`: this is a heading
-// for the whole panel, not a label on a row inside it, and at caption size it
-// disappeared into the content below it.
+// Title case in the system font, as a Mac sidebar heads its sections (Finder,
+// Mail, Xcode's navigators). It was letter-spaced monospaced capitals, the
+// VS Code panel caption, while the sidebar was VS Code-shaped.
 enum SidebarTitle {
     // One height for every tab, so the content under the title starts on the
     // same line whichever tab is showing. Tabs with header actions (Search's

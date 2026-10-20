@@ -20,7 +20,7 @@ extension TerminalWindowController {
     //  - the window ground and each pane's container / header / tab-bar chrome
     //    and (for non-terminal panes) content background, via Pane.reapplyTheme;
     //  - each tab's content-internal color caches (background tabs included);
-    //  - the sidebar rail;
+    //  - the sidebar's controls;
     //  - every draw()-based chrome view, by forcing a recursive repaint (they
     //    read their tokens live at draw time), plus the file-viewer gutters;
     //  - the focus border, repainted from the actual first responder (the same
@@ -29,7 +29,7 @@ extension TerminalWindowController {
     // panes need it to tell a theme-derived terminal ground, which should follow
     // the switch, from a color the user picked, which shouldn't.
     func applyTheme(previous: Theme.Palette? = nil) {
-        window.backgroundColor = Theme.well
+        window.backgroundColor = Theme.barChrome
 
         for pane in panes {
             pane.reapplyTheme(previous: previous)
@@ -40,7 +40,6 @@ extension TerminalWindowController {
         }
 
         sidebar.reapplyTheme()
-        activityBar.reapplyTheme()
 
         if let root = window.contentView {
             refreshThemeRecursively(root)

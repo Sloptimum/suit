@@ -14,6 +14,17 @@ final class ImageCanvasView: NSView {
 
     override var isFlipped: Bool { true }
 
+    // This is the pane's focus target, which is why it holds first responder
+    // for a view with nothing to type into. The app derives the focused pane
+    // from window.firstResponder (focusedPane() walks up from it to the owning
+    // PaneContainerView), so a pane whose focus target cannot hold the
+    // responder can never wear the accent border. The target used to be the
+    // enclosing scroll view, and NSScrollView hands first responder on to its
+    // document view: with the canvas refusing it, focus fell through to the
+    // window itself and every image tab — png and svg alike — read as an
+    // unfocused pane.
+    override var acceptsFirstResponder: Bool { true }
+
     override func draw(_ dirtyRect: NSRect) {
         // Two-tone checkerboard, the Preview.app convention for transparency.
         // Two adjacent chrome surfaces rather than fixed grays: the board reads
@@ -38,12 +49,24 @@ final class ImageCanvasView: NSView {
     }
 }
 
+// Click-to-focus for the whole viewport. Zoom-to-fit sizes the canvas to the
+// image, so most of the pane is the letterbox around it, where a click stops at
+// the clip view and would leave the pane unfocused. Both kinds of click end up
+// here — the canvas leaves mouseDown to the responder chain — so one hand-off
+// to the document view covers the image and the letterbox alike.
+final class ImageScrollView: NSScrollView {
+    override func mouseDown(with event: NSEvent) {
+        if let documentView { window?.makeFirstResponder(documentView) }
+        super.mouseDown(with: event)
+    }
+}
+
 final class ImagePaneContent: NSObject, FileBackedPaneContent {
     weak var pane: Pane?
     weak var tab: Tab?
 
     private let containerView = NSView(frame: .zero)
-    private let scrollView = NSScrollView(frame: .zero)
+    private let scrollView = ImageScrollView(frame: .zero)
     private let canvas = ImageCanvasView(frame: .zero)
     private let dimsLabel = NSTextField(labelWithString: "")
     private let zoomButton = NSButton(title: "Actual Size", target: nil, action: nil)
@@ -60,7 +83,10 @@ final class ImagePaneContent: NSObject, FileBackedPaneContent {
     private var background = Theme.bg
 
     var view: NSView { containerView }
-    var focusTarget: NSView { scrollView }
+    // The canvas, not the scroll view: a scroll view only passes first
+    // responder along to its document view, so this is where focus was always
+    // going to end up — see ImageCanvasView.
+    var focusTarget: NSView { canvas }
     var defaultTitle: String { "Image" }
     var workingDirectory: String? {
         filePath.map { ($0 as NSString).deletingLastPathComponent }

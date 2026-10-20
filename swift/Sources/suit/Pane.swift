@@ -77,16 +77,9 @@ protocol PaneHost: AnyObject {
 // content-agnostic chrome — focus border, header, drag & drop, background
 // color, screensaver.
 final class Pane: NSObject {
-    // 2pt amber when focused, a 1pt hairline otherwise. Computed (not cached)
-    // so a live theme switch is seen the next time setFocused repaints — a
-    // `static let` would freeze the old palette's colors for the app's life.
-    private static var focusedBorder: CGColor { Theme.focusBorder.cgColor }
-    private static var unfocusedBorder: CGColor { Theme.hairline.cgColor }
-
-    // The ring's two inputs, kept so either setter can recompute the whole
-    // state: width follows focus (the focused card carries the wide ring, the
-    // rest a hairline), and visibility follows the pane count — see
-    // refreshBorder().
+    // The focus marker's two inputs, kept so either setter can recompute the
+    // whole state: which pane is focused, and whether there is more than one
+    // pane to tell apart — see refreshBorder().
     private var showsBorder = false
     private var isFocused = false
 
@@ -202,17 +195,11 @@ final class Pane: NSObject {
 
         container = PaneContainerView(content: content.view)
         container.wantsLayer = true
-        container.layer?.borderWidth = 0
-        container.layer?.cornerRadius = Theme.Metrics.paneCornerRadius
-        // Continuous-curve corners, clipped: at 10pt a square content corner
-        // visibly pokes past the rounded border (the 4pt radius used to hide
-        // inside the 3pt inset), so the card clips everything to its own shape.
-        container.layer?.cornerCurve = .continuous
+        // A flush rectangle: the pane shares its edges with its neighbours and
+        // the window, and clips so no content draws past them. Grounded in the
+        // theme so a gap during a resize never shows the window backdrop (or
+        // black, in offscreen renders).
         container.layer?.masksToBounds = true
-        container.layer?.borderColor = Pane.unfocusedBorder
-        // The 3pt content inset shows the container itself; ground it in the
-        // chrome color so the outline reads as one hairline —
-        // never the window backdrop (or black, in offscreen renders).
         container.layer?.backgroundColor = Theme.bg.cgColor
 
         super.init()
@@ -369,17 +356,13 @@ final class Pane: NSObject {
         refreshBorder()
     }
 
-    // One writer for the ring, since its width and color both depend on both
-    // inputs: the focused card wears the accent at focusBorderWidth, every
-    // other card a 1pt hairline — a uniform 2pt hairline on unfocused panes
-    // read as five rings shouting at once.
+    // One writer for the focus state the header shows: with two or more panes,
+    // the focused one gets the accent rule under its header and the others
+    // dim their header text, the way an inactive editor in Xcode recedes. A
+    // single pane shows neither — there is nothing to tell it apart from.
+    // The ring around a floating card that this replaced went with the cards.
     private func refreshBorder() {
-        guard showsBorder else {
-            container.layer?.borderWidth = 0
-            return
-        }
-        container.layer?.borderWidth = isFocused ? Theme.Metrics.focusBorderWidth : 1
-        container.layer?.borderColor = isFocused ? Pane.focusedBorder : Pane.unfocusedBorder
+        container.setFocusState(showsBorder ? (isFocused ? .focused : .unfocused) : .alone)
     }
 
     func flashForBell() {

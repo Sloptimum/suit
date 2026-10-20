@@ -66,7 +66,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     var onNewBranch: ((String) -> Void)?
     // Open the local↔upstream diff for the checked-out branch.
     var onShowUpstreamDiff: ((_ root: String, _ branch: String) -> Void)?
-    // How many files are changed right now, for the activity bar's badge.
+    // How many files are changed right now, for the toolbar's Source Control badge.
     var onChangeCountChanged: ((Int) -> Void)?
 
     enum Row {
@@ -86,7 +86,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
         case unstageAll
     }
 
-    // "SOURCE CONTROL" above the branch row — the tab's own title, on the band
+    // "Source Control" above the branch row — the tab's own title, on the band
     // every sidebar tab opens with (SidebarTitle). The branch row already carries
     // four affordances at sidebar width, so the title takes a row of its own
     // rather than squeezing in beside them.
@@ -97,7 +97,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     // — a couple of rows plus its section header, enough to still be a list.
     private static let minListHeight: CGFloat = 90
 
-    private let titleLabel = SidebarTitle.label("SOURCE CONTROL")
+    private let titleLabel = SidebarTitle.label("Source Control")
     private let branchIcon = NSImageView(frame: .zero)
     let branchButton = NSButton(frame: .zero)
     private let markerButton = NSButton(frame: .zero)
@@ -184,7 +184,7 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
     // What this tab shows splits in two, and the halves want opposite rules:
     //
     //   * The working-tree state comes off the status monitor and is nearly
-    //     free. It also feeds the activity bar's change badge, so it has to
+    //     free. It also feeds the toolbar's change badge, so it has to
     //     stay correct while the tab is hidden — it follows every didUpdate.
     //   * The branch list, the feedback gather and the two `gh pr list` passes
     //     shell out (the last two over the network) and are drawn *only* here.

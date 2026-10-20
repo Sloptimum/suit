@@ -173,7 +173,7 @@ final class OpsLogView: NSView {
 
     private static let kindFilterKey = "opsLogKindFilter"
 
-    private let titleLabel = SidebarTitle.label("BACKGROUND")
+    private let titleLabel = SidebarTitle.label("Background")
     private let filterButton = NSPopUpButton(frame: .zero, pullsDown: false)
     private let pauseButton = NSButton(frame: .zero)
     private let clearButton = NSButton(frame: .zero)

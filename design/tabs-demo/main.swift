@@ -42,6 +42,10 @@ func pump(_ s: TimeInterval) {
 
 // MARK: - Scenario setup (mirrors design/reference/main.swift)
 
+// The demo is about tabs and panes: the sidebar stays collapsed, so the GIF
+// never shows the machine's own files whatever this binary's defaults hold.
+UserDefaults.standard.set(false, forKey: DefaultsKey.sidebarVisible)
+
 delegate.newWindow(nil)
 guard let c = NSApp.windows.compactMap({ $0.delegate as? TerminalWindowController }).first else {
     FileHandle.standardError.write(Data("no window controller\n".utf8))
@@ -76,13 +80,18 @@ guard let terminalTab = c.store.tabs.first(where: { $0.content is TerminalPaneCo
 let outputWidth = 880
 var frames: [(image: CGImage, delay: Double)] = []
 
+// The window's theme frame, not the content view, so the toolbar and the
+// traffic lights are in the picture; the overlays below still live in (and
+// are positioned in) the content view.
+let captureView = contentView.superview ?? contentView
+
 func captureFrame(delay: Double) {
     pump(0.03)
-    contentView.layoutSubtreeIfNeeded()
-    guard let rep = contentView.bitmapImageRepForCachingDisplay(in: contentView.bounds) else { return }
-    contentView.cacheDisplay(in: contentView.bounds, to: rep)
+    captureView.layoutSubtreeIfNeeded()
+    guard let rep = captureView.bitmapImageRepForCachingDisplay(in: captureView.bounds) else { return }
+    captureView.cacheDisplay(in: captureView.bounds, to: rep)
     guard let cg = rep.cgImage else { return }
-    let outputHeight = Int((CGFloat(outputWidth) * contentView.bounds.height / contentView.bounds.width).rounded())
+    let outputHeight = Int((CGFloat(outputWidth) * captureView.bounds.height / captureView.bounds.width).rounded())
     guard let ctx = CGContext(
         data: nil, width: outputWidth, height: outputHeight, bitsPerComponent: 8, bytesPerRow: 0,
         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue

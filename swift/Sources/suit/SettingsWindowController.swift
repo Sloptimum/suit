@@ -116,8 +116,8 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         // Same over-release hazard as TerminalWindowController's window: ARC
         // owns this window, so it must not also release itself on close.
         window.isReleasedWhenClosed = false
-        // The committed dark ground — native controls already
-        // render dark under the app-pinned .darkAqua appearance.
+        // The theme's ground — native controls follow the app's appearance,
+        // which follows the theme's lightness (startFollowingThemeAppearance).
         window.backgroundColor = Theme.bg
         self.init(window: window)
         self.appDelegate = appDelegate

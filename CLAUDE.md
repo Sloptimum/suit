@@ -6,7 +6,7 @@ Simplified Technical English.
 Suit (**S**top **U**sing **I**DE **T**erminal) is a personal macOS app. It is a native AppKit
 bundle. Each window contains a split tree of panes. Each pane shows tabs in the style of a web
 browser: terminals (`/bin/zsh -l -i` on the pty of SwiftTerm), file viewers, diffs, transcripts
-and dashboards. The app is one module of 203 Swift files. It uses only AppKit, the SwiftTerm
+and dashboards. The app is one module of 201 Swift files. It uses only AppKit, the SwiftTerm
 source in this repository, and the Hack font in the bundle.
 
 `README.md` introduces the app. `docs/features.md` gives the behavior of each function.
@@ -75,8 +75,8 @@ swiftc -O -j $(sysctl -n hw.ncpu) swift/Sources/suit/*.swift \
   $(find swift/Vendor/SwiftTerm -name '*.swift') -o /tmp/suit-shell-$TASK && /tmp/suit-shell-$TASK
 ```
 
-**Always use the `-j` option.** `swiftc` makes one frontend job for each file. There are 264 files:
-203 sources and 61 files from SwiftTerm. By default, `swiftc` runs these jobs in sequence. This
+**Always use the `-j` option.** `swiftc` makes one frontend job for each file. There are 262 files:
+201 sources and 61 files from SwiftTerm. By default, `swiftc` runs these jobs in sequence. This
 takes about 3 minutes on one core, while ten cores do no work. The `-j` option decreases
 the time to about 30 seconds. It changes only the schedule of the jobs. Use `-Onone`
 (about 16 seconds) if you only need a binary that runs. Do not use `-Onone` to examine the
@@ -174,10 +174,10 @@ comment is the true reference. A subsystem with more than one file has the shape
 
 | Area | Entry points |
 | --- | --- |
-| App shell | `main.swift`, `AppDelegate.swift`, `TerminalWindowController.swift`, `CommandPalette.swift`, `SettingsWindowController.swift` |
+| App shell | `main.swift`, `AppDelegate.swift`, `TerminalWindowController.swift`, `WindowSplitViewController.swift` (the system sidebar split), `WindowToolbar.swift`, `CommandPalette.swift`, `SettingsWindowController.swift` |
 | Tabs and panes | `TabStore.swift`, `Pane.swift`, `PaneContent.swift`, `PaneTabBarView.swift`, `StateRestoration.swift` |
 | Theme | `Theme.swift` (the tokens), `Theme+Palettes.swift` (the 14 themes in the app), `ThemeStore.swift` (the catalog and the `.suittheme` files) |
-| Sidebar | `ActivityBarView.swift` (the strip of icons; `WindowRootView` puts it *outside* the sidebar split, thus it stays after ⌘B), `SidebarView.swift`, `FileBrowserView.swift`, `SearchView.swift` plus `SearchReplace.swift` (the find and replace functions of the Search tab), `RipgrepSearch.swift` |
+| Sidebar | `SidebarView.swift` (the tab picker and the tab model), `FileBrowserView.swift`, `SearchView.swift` plus `SearchReplace.swift` (the find and replace functions of the Search tab), `RipgrepSearch.swift` |
 | Viewer and editor | `FileViewerPane.swift`, `EditorOps.swift`, `FindReplace.swift`, `CodeFolding.swift`, `SymbolIndex.swift`, `SyntaxHighlighter.swift` plus `SyntaxLanguages.swift`, `MarkdownPane.swift` |
 | Git and GitHub | `GitStatus.swift`, `GitView.swift` (the Source Control tab) plus `GitView+Commit.swift` (the stage function, the message box, the menu of actions), `GitBranchOps.swift` (the argv for each git action, without a user interface), `DiffPane.swift`, `DiffParser.swift`, `GitBranches.swift` (the wrapper for gh; it continues to operate without gh), `GitOutputParsing.swift` (what git and gh print, read without a process), `CommitGraph.swift`, `WorktreeTasks.swift` |
 | Claude | `ClaudeSessions.swift`, `ClaudeIntegration.swift`, `TranscriptPane.swift`, `Recipes.swift`, `Dictation.swift`, `GoalComposition.swift` |

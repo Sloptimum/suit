@@ -1,20 +1,10 @@
 import Cocoa
 
-// The pane tree's host inside the sidebar split: sizes its one subview (the
-// tree's root — a PaneContainerView or the outermost NSSplitView) to its
-// bounds, minus the well margin.
-//
-// `contentInset` is the frame of the floating-card look: the window ground
-// behind this host is the darker well (Theme.well), and the inset is what lets
-// it show around the tree so the rounded cards read as surfaces sitting *on*
-// something instead of tiles cut out of the window. The pane splits' widened
-// gutter dividers (SuitSplitView.isPaneGutter) paint the same well color, so
-// margin and gutters form one continuous ground.
+// The pane tree's host inside the window's content item: sizes its one subview
+// (the tree's root — a PaneContainerView or the outermost NSSplitView) to its
+// bounds. Panes run flush to the window edges and to the sidebar; the host
+// itself is pinned below the toolbar by PaneTreeHostView.
 final class RootContainerView: NSView {
-    var contentInset: CGFloat = 0 {
-        didSet { layoutParts() }
-    }
-
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
         layoutParts()
@@ -29,7 +19,7 @@ final class RootContainerView: NSView {
 
     private func layoutParts() {
         for subview in subviews {
-            subview.frame = bounds.insetBy(dx: contentInset, dy: contentInset)
+            subview.frame = bounds
         }
     }
 }
