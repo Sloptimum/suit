@@ -2,6 +2,7 @@ import Cocoa
 
 // The app entry point: constructs the AppDelegate, wires it to the shared
 // NSApplication as a regular (Dock-visible) app, and starts the run loop.
+LaunchTiming.mark(.mainEntered)
 let app = NSApplication.shared
 // Before the delegate exists, because AppDelegate.currentFont asks for Hack by
 // name the instant the delegate is built. Idempotent, so the identical call in

@@ -85,13 +85,59 @@ final class FileIndex {
         return index
     }
 
+    // Asked constantly, and nearly always about a directory already asked
+    // about: opening one window used to spawn this same `git rev-parse` four
+    // times on the main thread (the index, the Files tab, the Source Control
+    // tab, the away markers), and once more for every file tab. git stays the
+    // authority on the answer — its rules for worktrees, submodules and
+    // symlinked paths are not worth re-deriving — but an answer is remembered
+    // for as long as the thing that could change it has not: the nearest
+    // ancestor holding a `.git` entry. A `git init`, a deleted repo or a nested
+    // clone moves that marker, and the next call asks git again. Checking it
+    // is a few stat calls, against a process spawn.
+    //
+    // "Not a repo" is only remembered where no marker exists at all; a marker
+    // git refused to answer for (a repo mid-creation, an unsafe directory)
+    // may answer the next time.
     static func gitRoot(of directory: String) -> String? {
+        let marker = nearestGitMarker(from: directory)
+        gitRootLock.lock()
+        let remembered = gitRootMemo[directory]
+        gitRootLock.unlock()
+        if let remembered, remembered.marker == marker { return remembered.root }
+
         // A probe: "not a repo" is an ordinary answer here, not a failure.
         let output = runProcess(
             Git.executable, ["-C", directory, "rev-parse", "--show-toplevel"], probe: true
         )
-        guard let output, !output.isEmpty else { return nil }
-        return output.trimmingCharacters(in: .whitespacesAndNewlines)
+        let root = output.flatMap { text -> String? in
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        gitRootLock.lock()
+        if root != nil || marker == nil {
+            gitRootMemo[directory] = (marker, root)
+        } else {
+            gitRootMemo[directory] = nil
+        }
+        gitRootLock.unlock()
+        return root
+    }
+
+    // Called from the main thread and from the scan and status queues alike.
+    private static let gitRootLock = NSLock()
+    private static var gitRootMemo: [String: (marker: String?, root: String?)] = [:]
+
+    // The nearest directory at or above `directory` that holds a `.git` entry
+    // (a directory in a checkout, a file in a worktree or submodule).
+    static func nearestGitMarker(from directory: String) -> String? {
+        var current = (directory as NSString).standardizingPath
+        while true {
+            if FileManager.default.fileExists(atPath: current + "/.git") { return current }
+            let parent = (current as NSString).deletingLastPathComponent
+            if parent == current || parent.isEmpty { return nil }
+            current = parent
+        }
     }
 
     private init(root: String) {

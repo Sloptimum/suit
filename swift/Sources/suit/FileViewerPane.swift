@@ -258,7 +258,36 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     // Bumped per load; async highlight results from a superseded load drop out.
     var loadGeneration = 0
 
+    // A restored background tab (see PaneContent.prepareForDisplay): the path
+    // is claimed now — so the tab has its title, openFile's one-tab-per-path
+    // rule sees it, and the next quit snapshot can save it — but the read, the
+    // fold and outline passes, the highlighter and the file watcher wait until
+    // the tab is shown. `firstVisibleLine` is the scroll position to return to;
+    // it is also what the snapshot reports while the file is still unread, so
+    // a tab that is never opened keeps its place across relaunches.
+    func loadWhenShown(path: String, firstVisibleLine: Int?) {
+        filePath = (path as NSString).standardizingPath
+        deferredLoad = (path, firstVisibleLine)
+    }
+
+    private var deferredLoad: (path: String, firstVisibleLine: Int?)?
+
+    func prepareForDisplay() {
+        guard let deferred = deferredLoad else { return }
+        load(path: deferred.path)
+        if let line = deferred.firstVisibleLine, line > 1 {
+            // After this turn: the pane is installing the view right now, and
+            // line positions mean nothing before the text view has its width.
+            DispatchQueue.main.async { [weak self] in
+                self?.scrollTo(firstVisibleLine: line)
+            }
+        }
+    }
+
     func load(path: String, line: Int? = nil) {
+        // Any real load supersedes a deferred one (openFile re-pointing a
+        // background tab at a line, a save adopting a path).
+        deferredLoad = nil
         let standardized = (path as NSString).standardizingPath
         filePath = standardized
         // A file is behind the buffer now, so it is no longer a scratch
@@ -321,7 +350,19 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         foldRegions = []
         dismissPeek()
         refreshFoldRegions()
-        refreshOutline()
+        // The outline reads the project's symbol index, and the first file of
+        // a project is what creates that index: finding the repo root, taking
+        // the file list, starting ctags. None of it can show anything yet —
+        // the index is empty until ctags answers, and announces itself then —
+        // so during launch it waits for the first frame. The previous file's
+        // outline is dropped now either way.
+        outlineEntries = []
+        updateBreadcrumb()
+        let generation = loadGeneration
+        AfterLaunch.run { [weak self] in
+            guard let self, self.loadGeneration == generation else { return }
+            self.refreshOutline()
+        }
 
         syntaxSpans = []
         changedLines = IndexSet()
@@ -412,6 +453,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     // The 1-based line at the top of the visible rect — captured at quit so
     // the next launch can put the viewer back where it was.
     var firstVisibleLine: Int {
+        if let deferredLoad { return deferredLoad.firstVisibleLine ?? 1 }
         guard let layoutManager = textView.layoutManager,
               let textContainer = textView.textContainer,
               lineStarts.count > 1 else { return 1 }
@@ -434,7 +476,11 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
         layoutManager.ensureLayout(for: textContainer)
         let glyph = layoutManager.glyphIndexForCharacter(at: lineStarts[line - 1])
         let rect = layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
-        scrollView.contentView.scroll(to: NSPoint(x: 0, y: max(0, rect.minY + textView.textContainerInset.height)))
+        // Keep the clip view's own x: with the line-number ruler in place its
+        // resting origin is not 0, and scrolling to 0 slid the first columns
+        // of every line under the ruler.
+        let x = scrollView.contentView.bounds.origin.x
+        scrollView.contentView.scroll(to: NSPoint(x: x, y: max(0, rect.minY + textView.textContainerInset.height)))
         scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 

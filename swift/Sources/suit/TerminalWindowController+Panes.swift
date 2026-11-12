@@ -47,9 +47,24 @@ extension TerminalWindowController {
         focusedPane()?.workingDirectory ?? activeTab?.content.workingDirectory
     }
 
+    // What the window says about the pane in focus — the one place that
+    // decides, so the title, the proxy icon and the edited dot cannot disagree
+    // about which tab they describe.
+    //
+    // The proxy icon and the dot are what a document window on macOS carries:
+    // ⌘-click the title for the file's path, drag the icon to hand the file to
+    // another app, and a dot in the close button while there are unsaved
+    // edits. A terminal has no file behind it, so it clears both.
+    func showInWindowTitle(_ pane: Pane) {
+        window.title = pane.displayTitle
+        let path = (pane.content as? FileBackedPaneContent)?.filePath
+        window.representedURL = path.map { URL(fileURLWithPath: $0) }
+        window.isDocumentEdited = pane.tab.isDirty
+    }
+
     func paneTitleChanged(_ pane: Pane) {
         if focusedPane() === pane {
-            window.title = pane.displayTitle
+            showInWindowTitle(pane)
             store.touchMRU(pane.tab)
         }
         refreshTabSurfaces()

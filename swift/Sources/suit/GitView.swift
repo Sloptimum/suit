@@ -363,8 +363,22 @@ final class GitView: NSView, NSTableViewDataSource, NSTableViewDelegate, NSMenuD
             gitRoot = root
             monitor = root.map { GitStatusMonitor.shared(forRoot: $0) }
             // Markers are repo-wide (keyed by the main checkout); resolve it
-            // once here rather than on every FSEvents-driven reload.
-            markerMainRoot = root.flatMap { MarkerCatchUp.mainRoot($0) }
+            // once here rather than on every FSEvents-driven reload — and off
+            // the main thread, because it is a `git worktree list` and this
+            // runs while a window is being built. Only the flag button reads
+            // the answer, so it is the only thing told when it arrives; a
+            // repo switched away from in the meantime drops it.
+            markerMainRoot = nil
+            if let root {
+                DispatchQueue.global(qos: .utility).async { [weak self] in
+                    let mainRoot = MarkerCatchUp.mainRoot(root)
+                    DispatchQueue.main.async {
+                        guard let self, self.gitRoot == root else { return }
+                        self.markerMainRoot = mainRoot
+                        self.refreshMarkerButton()
+                    }
+                }
+            }
             // Drop the previous repo's branch/PR cache immediately so a stale
             // list never shows while the new one loads.
             branches = []

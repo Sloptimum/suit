@@ -67,7 +67,24 @@ app does.
   app is inactive.
 - **State restoration** — quitting snapshots every window's tab list, split tree, and viewer
   scroll positions; the next launch reopens it all, restarting terminals as fresh shells in
-  their old working directories.
+  their old working directories. Only the tabs that were on screen are brought up at launch:
+  a background tab keeps its place, title and saved position, and starts its shell or reads
+  its file the first time it is shown (or, for a terminal, the first time something is sent
+  to it). Launch time therefore follows what is visible, not how many tabs are open, and a tab
+  that is never looked at survives any number of relaunches unchanged.
+- **Opening folders and files from macOS** — **File ▸ Open…** (⌘O), a folder or file dropped
+  on the Dock icon, Finder's **Open With**, and `open -a Suit <path>` all work: a folder
+  becomes a window on that project (or brings forward the window already showing it), a file
+  becomes a tab in the current window. Suit registers as an *alternate* handler for folders
+  and text, so it never takes over as the default app for either.
+- **Standard window behavior** — the App menu has Services, Hide Suit (⌘H), Hide Others (⌥⌘H)
+  and Show All; the Window menu has Minimize (⌘M), Zoom and Bring All to Front; **File ▸ Close
+  Window** is ⇧⌘W (⌘W still closes the tab); the Help menu's search field finds any menu
+  command by name, and **Help ▸ Keyboard Shortcuts** opens the reference in Settings. A new
+  window takes the size of the one it was opened from and cascades from it. While a file tab
+  has the focus the window title carries its proxy icon (⌘-click for the path, drag it to
+  another app) and the close button shows the unsaved-changes dot. The Dock icon's menu has
+  New Window. The bell's pane flash is skipped when Reduce Motion is on.
 - **Saved layouts / named workspaces** — snapshot the current window's tab list + split tree
   under a name (**Save Layout As…**, in the Screen menu and the palette) and reopen it any time
   (**Open Layout…** — pick from a list; it rebuilds in a new window through the same replay path

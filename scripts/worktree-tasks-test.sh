@@ -33,6 +33,7 @@ if ! swiftc -O \
     "$ROOT/swift/Sources/suit/WorktreeSwitcher.swift" \
     "$ROOT/swift/Sources/suit/FileIndex.swift" \
     "$ROOT/swift/Sources/suit/ProcessUtil.swift" \
+    "$ROOT/swift/Sources/suit/LaunchTiming.swift" \
     "$ROOT/swift/Sources/suit/OpsLog.swift" \
     "$ROOT/scripts/worktree-tasks-test/main.swift" \
     -o "$TMP/harness"; then

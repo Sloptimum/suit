@@ -88,8 +88,13 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
 
     init(appDelegate: AppDelegate, startDirectory: String, restoring saved: SavedWindow? = nil, adopting adopted: Tab? = nil) {
         self.appDelegate = appDelegate
-        let frame = NSRect(x: 0, y: 0, width: 900, height: 600)
-        window = Self.makeWindow(frame: frame)
+        // A restored window is built at the size it will have. Building it at
+        // the default and resizing afterwards laid the whole tree out twice —
+        // once per size — and sent every fresh shell a SIGWINCH to redraw for.
+        let savedFrame = saved.flatMap { $0.frame.width > 100 && $0.frame.height > 100 ? $0.frame : nil }
+        window = Self.makeWindow(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
+        if let savedFrame { window.setFrame(savedFrame, display: false) }
+        let frame = NSRect(origin: .zero, size: window.contentRect(forFrameRect: window.frame).size)
 
         super.init()
 
@@ -99,16 +104,20 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
 
         paneTreeHost = RootContainerView(frame: frame)
 
+        LaunchTiming.note("window: shell built")
         let restored = restorePaneTree(saved: saved, adopted: adopted)
         let fallbackPane = installPaneTree(restoredRoot: restored.root)
+        LaunchTiming.note("window: pane tree restored")
 
         makeSidebar(frame: frame, startDirectory: startDirectory)
+        LaunchTiming.note("window: sidebar built")
         wireSidebar()
         restorePinnedSidebarRoot()
         assembleRootView(frame: frame)
+        LaunchTiming.note("window: root view assembled")
 
         if let fallbackPane {
-            window.title = fallbackPane.displayTitle
+            showInWindowTitle(fallbackPane)
             window.makeFirstResponder(fallbackPane.focusTarget)
             fallbackPane.terminalContent?.start(in: startDirectory)
         } else {
@@ -171,9 +180,21 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         var restoredRoot: NSView?
         var restoredByIndex: [Int: Tab] = [:]
         if let saved {
+            // Only what the tree shows is brought up now; the rest of the
+            // strip waits to be looked at. A tab this guesses wrong about (a
+            // stale tree, a pane that collapses because its neighbour's file is
+            // gone) is not lost — showing any tab prepares it.
+            let visible = visibleTabIndices(in: saved.tree)
             for (i, savedTab) in saved.tabs.enumerated() {
-                guard let content = restoredContent(savedTab) else { continue }
+                guard let content = restoredContent(savedTab, visible: visible.contains(i)) else { continue }
+                LaunchTiming.note("tab \(i) restored: \(savedTab.kind.rawValue)")
                 let tab = Tab(content: content)
+                // The content named itself before it had a tab to tell (load
+                // runs first, the Tab wraps it after), so say it again here —
+                // otherwise a restored file tab reads "Viewer" until reloaded.
+                if let path = (content as? FileBackedPaneContent)?.filePath {
+                    tab.contentTitle = (path as NSString).lastPathComponent
+                }
                 tab.isPreview = savedTab.isPreview
                 tab.isPinned = savedTab.isPinned ?? false
                 tab.customTitle = savedTab.customTitle
@@ -222,6 +243,7 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         let savedWidth = UserDefaults.standard.double(forKey: DefaultsKey.sidebarWidth)
         let sidebarWidth = savedWidth > 0 ? CGFloat(savedWidth) : SidebarView.defaultWidth
         sidebar = SidebarView(frame: NSRect(x: 0, y: 0, width: sidebarWidth, height: frame.height))
+        LaunchTiming.note("sidebar: views built")
 
         projectIndex = FileIndex.shared(forDirectory: startDirectory)
         sidebar.fileBrowser.configure(index: projectIndex)
@@ -433,7 +455,9 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
     // A restored window: its saved frame, the focus it had, and the divider
     // and scroll positions that need the window's real size first.
     private func finishRestore(saved: SavedWindow?, restoredByIndex: [Int: Tab]) {
-        if let saved, saved.frame.width > 100, saved.frame.height > 100 {
+        // The frame itself was applied before anything was built (see init);
+        // this only catches a window AppKit resized while its content went in.
+        if let saved, saved.frame.width > 100, saved.frame.height > 100, window.frame != saved.frame {
             window.setFrame(saved.frame, display: false)
         }
         updateBorderVisibility()
@@ -442,27 +466,28 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
         let activeTab = saved?.activeTabIndex.flatMap { restoredByIndex[$0] }
         let focusTarget = activeTab?.pane ?? firstPane(in: paneTreeRoot)
         if let focusTarget {
-            window.title = focusTarget.displayTitle
+            showInWindowTitle(focusTarget)
             window.makeFirstResponder(focusTarget.focusTarget)
         }
-        // Divider fractions need the window's real size; parents were
-        // appended after their children in buildNode, so the reversed
+        // Divider fractions need the window's real size — which it has by
+        // now, so they go in before the first frame rather than a turn after
+        // it (where they cost a second layout and a visible jump). Parents
+        // were appended after their children in buildNode, so the reversed
         // order sizes outer splits before the splits nested inside them.
         let pending = pendingDividerFractions.reversed()
         pendingDividerFractions = []
         let scrolls = pendingScrollRestores
         pendingScrollRestores = []
+        paneTreeHost.layoutSubtreeIfNeeded()
+        for (split, fraction) in pending {
+            split.layoutSubtreeIfNeeded()
+            let total = split.isVertical ? split.frame.width : split.frame.height
+            split.setPosition(total * CGFloat(fraction), ofDividerAt: 0)
+        }
+        // A turn later, so the scroll views re-tile to their final widths
+        // before line positions are computed.
         DispatchQueue.main.async {
-            for (split, fraction) in pending {
-                split.layoutSubtreeIfNeeded()
-                let total = split.isVertical ? split.frame.width : split.frame.height
-                split.setPosition(total * CGFloat(fraction), ofDividerAt: 0)
-            }
-            // One more turn so the scroll views re-tile to their final
-            // widths before line positions are computed.
-            DispatchQueue.main.async {
-                for restore in scrolls { restore() }
-            }
+            for restore in scrolls { restore() }
         }
     }
 

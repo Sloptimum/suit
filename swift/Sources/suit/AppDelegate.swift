@@ -145,7 +145,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     // the app's lifetime) and keeps this from ever owning an index.
     weak var paletteFileIndex: FileIndex?
 
+    // Open requests that arrived before launch had restored its windows
+    // (AppDelegate+Opening). launchFinished flips at the end of
+    // applicationDidFinishLaunching.
+    var pendingOpenURLs: [URL] = []
+    var launchFinished = false
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        LaunchTiming.mark(.didFinishLaunchingBegan)
+        AfterLaunch.begin()
         // Load the persisted theme selection into Theme.current before any
         // window is built, so the app opens already skinned (no flash of the
         // default palette). Safe to run this early — ThemeStore depends only on
@@ -165,6 +173,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // Push-to-talk dictation: hold 🌐 (Fn/Globe) + V to speak into the focused
         // pane (see AppDelegate+Dictation / Dictation.swift).
         installDictationHotkey()
+        LaunchTiming.mark(.settingsLoaded)
 
         // Reopen with the last quit's layout when one was saved (state
         // restoration); otherwise the classic single shell in the last cwd.
@@ -181,7 +190,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             }
         }
         if windowControllers.isEmpty {
-            let controller = openWindow(startDirectory: savedWorkingDirectory())
+            // Launched by a folder (dropped on the Dock icon, `open -a Suit
+            // dir`) with nothing to restore: that folder is the first window,
+            // rather than a window on the last directory plus a second one.
+            var startDirectory = savedWorkingDirectory()
+            if let index = pendingOpenURLs.firstIndex(where: { $0.hasDirectoryPath }) {
+                startDirectory = pendingOpenURLs.remove(at: index).path
+            }
+            let controller = openWindow(startDirectory: startDirectory)
             controller.window.makeKeyAndOrderFront(nil)
             // The very first launch also opens the guide tab beside the shell
             // (see FirstRunGuide.swift for what counts as "first").
@@ -196,7 +212,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // that restored its windows just proved it needs no tutorial.
         UserDefaults.standard.set(true, forKey: FirstRunGuide.shownDefaultsKey)
 
+        LaunchTiming.mark(.firstWindowOrdered)
         NSApp.activate(ignoringOtherApps: true)
+        finishPendingOpens()
 
         // Claude session awareness: remap sessions onto panes
         // whenever the session files change, plus a slow heartbeat — pids and
@@ -256,6 +274,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             self?.updateChecker?.presentPendingUpdate()
         }
         updateChecker?.startAutomaticChecks()
+        LaunchTiming.mark(.didFinishLaunchingEnded)
+        LaunchTiming.markFirstIdle()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

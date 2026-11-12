@@ -9,7 +9,7 @@ extension TerminalWindowController: TabStoreDelegate {
         refreshTabSurfaces()
         tab.pane?.refreshChrome()
         if let pane = tab.pane, focusedPane() === pane {
-            window.title = tab.title
+            showInWindowTitle(pane)
         }
     }
 

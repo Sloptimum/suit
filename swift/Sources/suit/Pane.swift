@@ -191,6 +191,7 @@ final class Pane: NSObject {
         self.host = host
         self.tab = tab
         let content = tab.content
+        content.prepareForDisplay()
         backgroundRGB = content.initialBackgroundColor
 
         container = PaneContainerView(content: content.view)
@@ -245,6 +246,7 @@ final class Pane: NSObject {
         newTab.pane = self
         newTab.homePane = self
         newTab.content.pane = self
+        newTab.content.prepareForDisplay()
         // A (re-)displayed tab picks up the appearance this pane already wears.
         if let appliedFont { newTab.content.applyFont(appliedFont) }
         if let appliedTextColor { newTab.content.applyTextColor(appliedTextColor) }

@@ -46,6 +46,19 @@ protocol PaneContent: AnyObject {
     // above); this is for the content's own internal chrome. Default no-op.
     func reapplyTheme()
 
+    // The content is about to go on screen in a pane — called by Pane before it
+    // installs `view`, every time, so it must be cheap and idempotent.
+    //
+    // This is what lets state restoration bring a background tab back as a
+    // promise instead of a running thing: a window that quit with twenty tabs
+    // used to fork twenty login shells and read, fold and highlight every file
+    // before its first frame, for tabs nobody was looking at. A content that
+    // can defer (a terminal's shell, a file's load) keeps its identity — title,
+    // path, working directory, the state the next quit snapshot needs — and
+    // does the expensive part here, the first time someone actually looks.
+    // Default no-op.
+    func prepareForDisplay()
+
     // The pane is going away: stop processes/timers. Must be safe to call twice.
     func teardown()
 }
@@ -88,6 +101,7 @@ extension PaneContent {
     func applyTextColor(_ color: NSColor) {}
     func applyBackground(_ color: NSColor) {}
     func reapplyTheme() {}
+    func prepareForDisplay() {}
     func teardown() {}
 }
 
@@ -121,7 +135,32 @@ class TerminalPaneContent: PaneContent, LocalProcessTerminalViewDelegate {
         terminalView.processDelegate = self
     }
 
+    // A restored background tab: remember where the shell belongs and fork it
+    // when the tab is first shown (prepareForDisplay) or first written to —
+    // whichever comes first. Until then the tab is a real tab in every other
+    // respect: it has its place in the strip, its title, and the directory the
+    // next quit snapshot will save, so a tab that is never looked at survives
+    // any number of relaunches unchanged.
+    func startWhenShown(in directory: String) {
+        lastKnownWorkingDirectory = directory
+        deferredStartDirectory = directory
+        // Bytes for a shell that does not exist yet (a recipe, a broadcast, a
+        // goal routed to this tab) must not vanish into a pty that was never
+        // opened: start the shell first, and the warm-up gate holds the bytes
+        // until its line editor is up, exactly as it does for fast typing.
+        terminalView.startDeferredShell = { [weak self] in self?.prepareForDisplay() }
+    }
+
+    private var deferredStartDirectory: String?
+
+    func prepareForDisplay() {
+        guard let directory = deferredStartDirectory else { return }
+        start(in: directory)
+    }
+
     func start(in directory: String = NSHomeDirectory()) {
+        deferredStartDirectory = nil
+        terminalView.startDeferredShell = nil
         lastKnownWorkingDirectory = directory
         let appDelegate = NSApp.delegate as? AppDelegate
         // -l -i (login + interactive), matching what Terminal.app actually starts:
@@ -156,7 +195,8 @@ class TerminalPaneContent: PaneContent, LocalProcessTerminalViewDelegate {
     private var lastKnownWorkingDirectory: String?
 
     var workingDirectory: String? {
-        if let cwd = currentWorkingDirectory(ofProcess: shellPid) {
+        // No shell yet (a deferred start): pid 0 is not ours to ask about.
+        if shellPid > 0, let cwd = currentWorkingDirectory(ofProcess: shellPid) {
             lastKnownWorkingDirectory = cwd
             return cwd
         }

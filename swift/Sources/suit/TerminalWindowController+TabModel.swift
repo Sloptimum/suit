@@ -48,7 +48,7 @@ extension TerminalWindowController {
         }
         guard let focused else { return }
         lastFocusedPane = focused
-        window.title = focused.displayTitle
+        showInWindowTitle(focused)
         store.touchMRU(focused.tab)
         refreshTabSurfaces()
     }

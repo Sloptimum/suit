@@ -26,6 +26,7 @@ if ! swiftc -O \
     "$ROOT/swift/Sources/suit/DirectoryWatcher.swift" \
     "$ROOT/swift/Sources/suit/SuitPaths.swift" \
     "$ROOT/swift/Sources/suit/ProcessUtil.swift" \
+    "$ROOT/swift/Sources/suit/LaunchTiming.swift" \
     "$ROOT/swift/Sources/suit/OpsLog.swift" \
     "$ROOT/scripts/fleet-model-test/main.swift" \
     -o "$DRIVER"; then
