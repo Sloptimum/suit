@@ -25,6 +25,7 @@ echo "==> Compiling FileIndex logic test"
 if ! swiftc -O \
     "$ROOT/swift/Sources/suit/FileIndex.swift" \
     "$ROOT/swift/Sources/suit/ProcessUtil.swift" \
+    "$ROOT/swift/Sources/suit/LaunchTiming.swift" \
     "$ROOT/swift/Sources/suit/OpsLog.swift" \
     "$ROOT/scripts/file-index-test/main.swift" \
     -o "$DRIVER"; then

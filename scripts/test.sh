@@ -67,6 +67,7 @@ HARNESSES=(
   "git-output-parsing|scripts/git-output-parsing-test.sh|fast"
   "worktree-tasks|scripts/worktree-tasks-test.sh|fast"
   "source-control-gate|scripts/source-control-gate-test.sh|slow"
+  "lazy-restore|scripts/lazy-restore-test.sh|slow"
 )
 
 run_slow=0

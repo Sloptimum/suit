@@ -15,6 +15,13 @@ assembled into an app bundle by `build.sh` (see the "No SwiftPM, no Xcode projec
 open build/Suit.app        # launch like a normal Mac app
 ```
 
+To see where launch time goes, run the built app with `SUIT_LAUNCH_TRACE=1`: it prints one
+line per launch milestone on stderr, in milliseconds since the kernel started the process, and
+lists every subprocess the main thread waited on before the first idle. `SUIT_LAUNCH_TRACE=exit`
+also quits at the last milestone without saving state, so a script can launch it repeatedly
+(see `LaunchTiming.swift`). Run it against a sandboxed `$HOME` and a copy of the bundle with its
+own bundle identifier, or it reads your real saved layout.
+
 To iterate on the UI without assembling the bundle, compile the Swift sources straight to a
 binary:
 

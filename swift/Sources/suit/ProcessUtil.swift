@@ -180,6 +180,9 @@ private func spawn(
     _ executable: String, _ arguments: [String],
     cwd: String?, stdin: Data?, captureStderr: Bool
 ) throws -> ProcessResult {
+    LaunchTiming.noteBlockingSpawn(
+        ([(executable as NSString).lastPathComponent] + arguments.prefix(4)).joined(separator: " ")
+    )
     let process = Process()
     process.executableURL = URL(fileURLWithPath: executable)
     process.arguments = arguments

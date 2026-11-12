@@ -291,6 +291,10 @@ Approve, Request Changes or Comment verdict with `gh pr review`.
 | Shortcut | Action |
 | --- | --- |
 | ⇧⌘N | New window |
+| ⌘O | Open a folder (as a window) or files (as tabs) |
+| ⇧⌘W | Close the window |
+| ⌘M | Minimize the window |
+| ⌘H / ⌥⌘H | Hide Suit / hide the other apps |
 | ⌘, | Settings |
 | ⌘C / ⌘V | Copy / paste |
 | ⌘Q | Quit Suit |

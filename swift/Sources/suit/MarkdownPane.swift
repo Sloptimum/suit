@@ -151,8 +151,46 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
         )
     }
 
+    // A restored background tab (see PaneContent.prepareForDisplay): claim the
+    // path now, read and render when the tab is first shown. The fraction is
+    // the scroll position to return to, and what the quit snapshot reports
+    // until then.
+    func loadWhenShown(path: String, scrollFraction: Double?) {
+        filePath = (path as NSString).standardizingPath
+        deferredLoad = (path, scrollFraction)
+    }
+
+    private var deferredLoad: (path: String, scrollFraction: Double?)?
+
+    func prepareForDisplay() {
+        guard let deferred = deferredLoad else { return }
+        deferredLoad = nil
+        load(path: deferred.path, line: nil)
+        if let fraction = deferred.scrollFraction, fraction > 0 {
+            // After this turn, when the column has been laid out at the pane's
+            // width — a fraction of an unlaid document is a fraction of nothing.
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                // The pane installed the view this turn but nothing has drawn
+                // yet, so the document still has its unlaid height.
+                self.containerView.layoutSubtreeIfNeeded()
+                if let layoutManager = self.textView.layoutManager, let container = self.textView.textContainer {
+                    layoutManager.ensureLayout(for: container)
+                }
+                self.restore(scrollFraction: fraction)
+            }
+        }
+    }
+
     func load(path: String, line: Int?) {
         let standardized = (path as NSString).standardizingPath
+        // The same file asked for again before it was ever shown is the
+        // deferred load itself, saved position included.
+        if let deferred = deferredLoad, (deferred.path as NSString).standardizingPath == standardized {
+            prepareForDisplay()
+            return
+        }
+        deferredLoad = nil
         // Expansion is keyed by source line, so it means nothing once the
         // source changes.
         if standardized != filePath { flippedDetails.removeAll() }
@@ -406,6 +444,7 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
     // MARK: - State restoration
 
     var scrollFraction: Double {
+        if let deferredLoad { return deferredLoad.scrollFraction ?? 0 }
         guard let documentView = scrollView.documentView else { return 0 }
         let docHeight = documentView.frame.height
         guard docHeight > 0 else { return 0 }

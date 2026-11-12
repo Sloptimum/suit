@@ -20,6 +20,11 @@ extension TerminalWindowController {
     // Rebuilds the sidebar Sessions list: every open tab grouped by the pane
     // (screen) that owns it, plus a Background group for any tab no pane holds.
     func refreshSessionsSidebar() {
+        // The pane tree is built before the sidebar, and building a pane can
+        // already report a tab change (a deferred file loads as its pane is
+        // made, and names itself). The constructor ends with a full refresh,
+        // so there is nothing to lose by skipping the ones before it.
+        guard let sidebar else { return }
         var groups: [SessionsView.Group] = []
         let multiple = panes.count > 1
         for (index, pane) in panes.enumerated() {
@@ -48,7 +53,7 @@ extension TerminalWindowController {
         }
         guard let focused else { return }
         lastFocusedPane = focused
-        window.title = focused.displayTitle
+        showInWindowTitle(focused)
         store.touchMRU(focused.tab)
         refreshTabSurfaces()
     }
@@ -153,6 +158,10 @@ extension TerminalWindowController {
             return
         }
         let tab = Tab(content: content)
+        // Loaded before it had a tab to name itself to (see restorePaneTree).
+        if let path = (content as? FileBackedPaneContent)?.filePath {
+            tab.contentTitle = (path as NSString).lastPathComponent
+        }
         tab.isPreview = saved.isPreview
         tab.isPinned = saved.isPinned ?? false
         tab.customTitle = saved.customTitle

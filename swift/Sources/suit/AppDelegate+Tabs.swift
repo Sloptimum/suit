@@ -71,7 +71,9 @@ extension AppDelegate {
     }
 
     @objc func newWindow(_ sender: Any?) {
+        let anchor = activeWindowController()?.window
         let controller = openWindow(startDirectory: startDirectoryForNewWindowOrTab())
+        placeNewWindow(controller.window, relativeTo: anchor)
         controller.window.makeKeyAndOrderFront(nil)
     }
 
@@ -248,6 +250,11 @@ extension AppDelegate {
         if menuItem.action == #selector(toggleWordWrap(_:)) {
             menuItem.state = wordWrapEnabled ? .on : .off
             return true
+        }
+        if menuItem.action == #selector(toggleSidebar(_:)) {
+            let controller = activeWindowController()
+            menuItem.title = controller?.isSidebarCollapsed == true ? "Show Sidebar" : "Hide Sidebar"
+            return controller != nil
         }
         guard menuItem.action == #selector(goToTab(_:)) else { return true }
         let count = activeWindowController()?.store.tabs.count ?? 0

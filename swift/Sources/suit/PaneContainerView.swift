@@ -135,6 +135,10 @@ final class PaneContainerView: NSView {
     // the pane's own background color, and useful for noticing a bell in an
     // unfocused pane/window without relying on the (often muted/disabled) system beep.
     func flashForBell() {
+        // A full-pane flash is exactly what Reduce Motion asks apps to drop;
+        // the bell still reaches the user through the tab's attention dot and
+        // the Dock bounce.
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
         flashOverlay.isHidden = false
         flashOverlay.layer?.removeAllAnimations()
         flashOverlay.alphaValue = 0.35

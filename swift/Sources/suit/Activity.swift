@@ -319,9 +319,12 @@ final class ActivityStore {
     private func load() {
         guard let data = try? Data(contentsOf: fileURL),
               let text = String(data: data, encoding: .utf8) else { return }
+        // One decoder for the whole file: this runs during launch, on up to
+        // maxRows lines, and a decoder per line was most of its cost.
+        let decoder = JSONDecoder()
         for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
             guard let lineData = line.data(using: .utf8),
-                  let event = try? JSONDecoder().decode(ActivityEvent.self, from: lineData) else { continue }
+                  let event = try? decoder.decode(ActivityEvent.self, from: lineData) else { continue }
             if knownIds.contains(event.id) { continue }
             knownIds.insert(event.id)
             events.append(event)

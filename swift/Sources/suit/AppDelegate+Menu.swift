@@ -15,7 +15,7 @@ extension AppDelegate {
         let mainMenu = NSMenu()
         for menu in [
             makeAppMenu(), makeFileMenu(), makeEditMenu(), makeTabsMenu(),
-            makeScreenMenu(), makeViewMenu(), makeWindowMenu(),
+            makeScreenMenu(), makeViewMenu(), makeWindowMenu(), makeHelpMenu(),
         ] {
             let item = NSMenuItem()
             item.submenu = menu
@@ -36,6 +36,19 @@ extension AppDelegate {
         let integrationItem = appMenu.addItem(withTitle: "Install Claude Code Integration…", action: #selector(installClaudeIntegration(_:)), keyEquivalent: "")
         integrationItem.target = self
         appMenu.addItem(.separator())
+        // The part of the application menu every Mac app has, and the user's
+        // hands expect: Services, and ⌘H / ⌥⌘H to get the app out of the way
+        // without quitting it. AppKit fills the Services submenu itself once
+        // it is told which menu that is.
+        let servicesMenu = NSMenu(title: "Services")
+        appMenu.addItem(withTitle: "Services", action: nil, keyEquivalent: "").submenu = servicesMenu
+        NSApp.servicesMenu = servicesMenu
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Hide Suit", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let hideOthersItem = appMenu.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        hideOthersItem.keyEquivalentModifierMask = [.command, .option]
+        appMenu.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit Suit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         return appMenu
     }
@@ -46,12 +59,23 @@ extension AppDelegate {
         // gesture one modifier away at ⇧⌘N (see the Window menu below).
         let newFileItem = fileMenu.addItem(withTitle: "New File", action: #selector(newFile(_:)), keyEquivalent: "n")
         newFileItem.target = self
+        // ⌘O — the system open panel, for a folder (which becomes a window on
+        // that project) or files (which open as tabs). Open Quickly below stays
+        // the fast way to a file *inside* the project.
+        let openItem = fileMenu.addItem(withTitle: "Open…", action: #selector(openDocument(_:)), keyEquivalent: "o")
+        openItem.target = self
         let openQuicklyItem = fileMenu.addItem(withTitle: "Open Quickly…", action: #selector(openQuickly(_:)), keyEquivalent: "p")
         openQuicklyItem.target = self
         // ⌘S — responder-chain routed to the focused editable viewer;
         // auto-disabled (and the write no-ops) when no editable file is focused.
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Save", action: #selector(ViewerTextView.saveFile(_:)), keyEquivalent: "s")
+        // ⌘W closes a tab here (the Tabs menu), as in a browser; the window
+        // itself closes on the standard shifted key. performClose goes through
+        // windowShouldClose, so the running-process confirmation still asks.
+        fileMenu.addItem(.separator())
+        let closeWindowItem = fileMenu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "W")
+        closeWindowItem.keyEquivalentModifierMask = [.command, .shift]
         return fileMenu
     }
 
@@ -268,7 +292,8 @@ extension AppDelegate {
         let commandPaletteItem = viewMenu.addItem(withTitle: "Command Palette…", action: #selector(showCommandPalette(_:)), keyEquivalent: "k")
         commandPaletteItem.target = self
 
-        let toggleSidebarItem = viewMenu.addItem(withTitle: "Toggle Sidebar", action: #selector(toggleSidebar(_:)), keyEquivalent: "b")
+        // Titled Show/Hide Sidebar by validateMenuItem, to say what it will do.
+        let toggleSidebarItem = viewMenu.addItem(withTitle: "Hide Sidebar", action: #selector(toggleSidebar(_:)), keyEquivalent: "b")
         toggleSidebarItem.target = self
 
         // Push-to-talk dictation: the trigger is holding 🌐 (Fn/Globe) + V; this
@@ -421,6 +446,13 @@ extension AppDelegate {
         let newWindowItem = windowMenu.addItem(withTitle: "New Window", action: #selector(newWindow(_:)), keyEquivalent: "N")
         newWindowItem.keyEquivalentModifierMask = [.command, .shift]
         newWindowItem.target = self
+        // The standard window commands, routed to the key window by the
+        // responder chain. Without the items, ⌘M did nothing at all: a
+        // ⌘-shortcut only exists on macOS as a menu item's key equivalent.
+        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windowMenu.addItem(.separator())
+        windowMenu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
 
         // AppKit appends the open-window list to this menu on its own once it's
         // registered as the app's Window menu. (Native window-tab commands
@@ -428,6 +460,18 @@ extension AppDelegate {
         // one tab system.)
         NSApp.windowsMenu = windowMenu
         return windowMenu
+    }
+
+    // A Help menu mostly for what AppKit puts in it: the search field that
+    // finds any menu command by name, which is how a Mac user looks for a
+    // command they cannot place. The one item of our own opens the keyboard
+    // reference in Settings.
+    private func makeHelpMenu() -> NSMenu {
+        let helpMenu = NSMenu(title: "Help")
+        let shortcutsItem = helpMenu.addItem(withTitle: "Keyboard Shortcuts", action: #selector(showKeyboardShortcuts(_:)), keyEquivalent: "")
+        shortcutsItem.target = self
+        NSApp.helpMenu = helpMenu
+        return helpMenu
     }
 
     // App menu ▸ Check for Updates… — the manual check; always answers with

@@ -124,6 +124,15 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         buildUI()
     }
 
+    // Opens on a named category (Help ▸ Keyboard Shortcuts); selecting the
+    // row is what swaps the panel, exactly as a click does.
+    func show(category: String) {
+        show()
+        if let row = Self.categories.firstIndex(where: { $0.title == category }) {
+            sidebarTable.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        }
+    }
+
     func show() {
         if let appDelegate {
             updateFontLabel(appDelegate.currentFont)

@@ -114,6 +114,16 @@ extension TerminalWindowController {
         return .pane(tabIndex: index, fontSize: fontSize)
     }
 
+    // The saved tab indices the split tree puts in a pane.
+    func visibleTabIndices(in node: SavedNode?) -> Set<Int> {
+        switch node {
+        case .none: return []
+        case .pane(let tabIndex, _): return [tabIndex]
+        case .split(_, _, let first, let second):
+            return visibleTabIndices(in: first).union(visibleTabIndices(in: second))
+        }
+    }
+
     func buildNode(_ node: SavedNode, restored: [Int: Tab]) -> NSView? {
         switch node {
         case .pane(let tabIndex, let fontSize):
@@ -142,17 +152,32 @@ extension TerminalWindowController {
         }
     }
 
-    func restoredContent(_ tab: SavedTab) -> PaneContent? {
+    // `visible` is whether the saved split tree shows this tab in a pane. A tab
+    // that comes back in the background is restored as a promise — its shell
+    // forks and its file is read the first time it is shown (PaneContent
+    // .prepareForDisplay) — so launch pays for what is on screen and not for
+    // the length of the strip. The kinds without a deferred form (image, PDF,
+    // diff, graph, ssh) still restore eagerly; they are rare, and ssh has a
+    // command to pre-type into a live shell.
+    func restoredContent(_ tab: SavedTab, visible: Bool = true) -> PaneContent? {
         switch tab.kind {
         case .terminal:
             let terminal = TerminalPaneContent()
             let cwd = tab.cwd.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }
-            terminal.start(in: cwd ?? NSHomeDirectory())
+            if visible {
+                terminal.start(in: cwd ?? NSHomeDirectory())
+            } else {
+                terminal.startWhenShown(in: cwd ?? NSHomeDirectory())
+            }
             return terminal
         case .viewer:
             guard let path = tab.filePath, FileManager.default.fileExists(atPath: path) else { return nil }
             let viewer = FileViewerPaneContent()
             viewer.setWordWrap(appDelegate.wordWrapEnabled)
+            guard visible else {
+                viewer.loadWhenShown(path: path, firstVisibleLine: tab.firstVisibleLine)
+                return viewer
+            }
             viewer.load(path: path, line: nil)
             if let line = tab.firstVisibleLine, line > 1 {
                 pendingScrollRestores.append { viewer.scrollTo(firstVisibleLine: line) }
@@ -161,6 +186,10 @@ extension TerminalWindowController {
         case .markdown:
             guard let path = tab.filePath, FileManager.default.fileExists(atPath: path) else { return nil }
             let markdown = MarkdownPaneContent()
+            guard visible else {
+                markdown.loadWhenShown(path: path, scrollFraction: tab.scrollFraction)
+                return markdown
+            }
             markdown.load(path: path, line: nil)
             if let fraction = tab.scrollFraction, fraction > 0 {
                 pendingScrollRestores.append { markdown.restore(scrollFraction: fraction) }
@@ -225,7 +254,9 @@ extension TerminalWindowController {
         var changed = false
         for tab in store.tabs {
             let session: ClaudeSession?
-            if tab.exitStatus == nil, let terminal = tab.content as? TerminalPaneContent {
+            // A tab whose shell has not been started yet (a restored background
+            // tab) cannot be running anything, and pid 0 would match by cwd.
+            if tab.exitStatus == nil, let terminal = tab.content as? TerminalPaneContent, terminal.shellPid > 0 {
                 session = assigner.session(forShellPid: terminal.shellPid, cwd: terminal.workingDirectory)
             } else {
                 session = nil

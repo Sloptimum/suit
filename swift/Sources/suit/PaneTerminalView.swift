@@ -16,11 +16,17 @@ final class PaneTerminalView: LocalProcessTerminalView {
     // dispatch queue) with the raw pty bytes.
     var outputSniffer: ((ArraySlice<UInt8>) -> Void)?
 
+    // Set while the shell's start is deferred (TerminalPaneContent
+    // .startWhenShown); run by the first input, so nothing is ever written to
+    // a terminal that has no process behind it.
+    var startDeferredShell: (() -> Void)?
+
     override func dataReceived(slice: ArraySlice<UInt8>) {
         // Anything the shell draws can move the cursor off the end of the echo
         // the warm-up gate is holding, which decides whether that echo is still
         // ours to erase at handover. Same main queue as the gate's timer.
         if warmup != nil { warmupShellRedrew = true }
+        LaunchTiming.mark(.shellFirstByte)
         super.dataReceived(slice: slice)
         outputSniffer?(slice)
     }
@@ -31,6 +37,7 @@ final class PaneTerminalView: LocalProcessTerminalView {
     var userReturnHook: (() -> Void)?
 
     override func send(source: TerminalView, data: ArraySlice<UInt8>) {
+        startDeferredShell?()
         // Shell still warming up with nobody editing input? Hold the keystrokes
         // and draw them ourselves rather than let the tty driver echo raw bytes
         // (see ShellWarmup.swift). Both hooks below run on the flush instead,
