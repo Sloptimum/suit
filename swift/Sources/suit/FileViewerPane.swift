@@ -274,6 +274,7 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
 
     func prepareForDisplay() {
         guard let deferred = deferredLoad else { return }
+        deferredLoad = nil
         load(path: deferred.path)
         if let line = deferred.firstVisibleLine, line > 1 {
             // After this turn: the pane is installing the view right now, and
@@ -285,10 +286,18 @@ final class FileViewerPaneContent: NSObject, FileBackedPaneContent {
     }
 
     func load(path: String, line: Int? = nil) {
-        // Any real load supersedes a deferred one (openFile re-pointing a
-        // background tab at a line, a save adopting a path).
-        deferredLoad = nil
         let standardized = (path as NSString).standardizingPath
+        // The same file asked for again with nowhere particular to go (a click
+        // in the file tree on a tab that has not been shown yet) is the
+        // deferred load itself, saved position included.
+        if line == nil, let deferred = deferredLoad,
+           (deferred.path as NSString).standardizingPath == standardized {
+            prepareForDisplay()
+            return
+        }
+        // Any other real load supersedes it (a jump to a line, a save
+        // adopting a path).
+        deferredLoad = nil
         filePath = standardized
         // A file is behind the buffer now, so it is no longer a scratch
         // document — whatever route got us here (the first ⌘S adopting a path,

@@ -184,7 +184,8 @@ final class TerminalWindowController: NSObject, NSWindowDelegate, NSSplitViewDel
             // strip waits to be looked at. A tab this guesses wrong about (a
             // stale tree, a pane that collapses because its neighbour's file is
             // gone) is not lost — showing any tab prepares it.
-            let visible = visibleTabIndices(in: saved.tree)
+            // A snapshot without a tree shows its first tab (below).
+            let visible = saved.tree == nil ? [0] : visibleTabIndices(in: saved.tree)
             for (i, savedTab) in saved.tabs.enumerated() {
                 guard let content = restoredContent(savedTab, visible: visible.contains(i)) else { continue }
                 LaunchTiming.note("tab \(i) restored: \(savedTab.kind.rawValue)")

@@ -164,6 +164,7 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
 
     func prepareForDisplay() {
         guard let deferred = deferredLoad else { return }
+        deferredLoad = nil
         load(path: deferred.path, line: nil)
         if let fraction = deferred.scrollFraction, fraction > 0 {
             // After this turn, when the column has been laid out at the pane's
@@ -182,8 +183,14 @@ final class MarkdownPaneContent: NSObject, FileBackedPaneContent, NSTextViewDele
     }
 
     func load(path: String, line: Int?) {
-        deferredLoad = nil
         let standardized = (path as NSString).standardizingPath
+        // The same file asked for again before it was ever shown is the
+        // deferred load itself, saved position included.
+        if let deferred = deferredLoad, (deferred.path as NSString).standardizingPath == standardized {
+            prepareForDisplay()
+            return
+        }
+        deferredLoad = nil
         // Expansion is keyed by source line, so it means nothing once the
         // source changes.
         if standardized != filePath { flippedDetails.removeAll() }

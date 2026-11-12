@@ -72,9 +72,9 @@ enum LaunchTiming {
     }
 
     // Called by the one process runner for every spawn it blocks on.
-    static func noteBlockingSpawn(_ label: String) {
+    static func noteBlockingSpawn(_ label: @autoclosure () -> String) {
         guard isEnabled, Thread.isMainThread, !seen.contains(Milestone.firstIdle.rawValue) else { return }
-        blockingSpawns.append(label)
+        blockingSpawns.append(label())
     }
 
     // "The window is on screen and the app is waiting for the user": the first

@@ -99,10 +99,18 @@ final class FileIndex {
     // "Not a repo" is only remembered where no marker exists at all; a marker
     // git refused to answer for (a repo mid-creation, an unsafe directory)
     // may answer the next time.
+    //
+    // Known gap, accepted: a repo whose answer changes while its marker stays
+    // put (core.worktree edited, a linked worktree's admin directory pruned
+    // by hand) is answered from memory until the app restarts.
     static func gitRoot(of directory: String) -> String? {
-        let marker = nearestGitMarker(from: directory)
+        // A directory that is gone has no memory worth trusting — git says
+        // "not a repo" for it even when its parent still is one.
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: directory, isDirectory: &isDirectory) && isDirectory.boolValue
+        let marker = exists ? nearestGitMarker(from: directory) : nil
         gitRootLock.lock()
-        let remembered = gitRootMemo[directory]
+        let remembered = exists ? gitRootMemo[directory] : nil
         gitRootLock.unlock()
         if let remembered, remembered.marker == marker { return remembered.root }
 
@@ -115,7 +123,7 @@ final class FileIndex {
             return trimmed.isEmpty ? nil : trimmed
         }
         gitRootLock.lock()
-        if root != nil || marker == nil {
+        if exists, root != nil || marker == nil {
             gitRootMemo[directory] = (marker, root)
         } else {
             gitRootMemo[directory] = nil
@@ -130,8 +138,11 @@ final class FileIndex {
 
     // The nearest directory at or above `directory` that holds a `.git` entry
     // (a directory in a checkout, a file in a worktree or submodule).
+    // Walked on the physical path: git answers for where a directory really
+    // is, so a symlink into (or out of) a repo must be followed first or the
+    // walk climbs the wrong parents.
     static func nearestGitMarker(from directory: String) -> String? {
-        var current = (directory as NSString).standardizingPath
+        var current = URL(fileURLWithPath: directory).resolvingSymlinksInPath().path
         while true {
             if FileManager.default.fileExists(atPath: current + "/.git") { return current }
             let parent = (current as NSString).deletingLastPathComponent

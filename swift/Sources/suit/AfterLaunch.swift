@@ -30,7 +30,10 @@ enum AfterLaunch {
             nil, CFRunLoopActivity.beforeWaiting.rawValue, false, CFIndex.max
         ) { _, _ in
             if let observer { CFRunLoopRemoveObserver(CFRunLoopGetMain(), observer, .commonModes) }
-            flush()
+            // Not from inside the observer: the frame being waited for was
+            // committed a moment ago, and view changes made here would sit
+            // until something else woke the run loop. The main queue wakes it.
+            DispatchQueue.main.async { flush() }
         }
         CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
         // A launch that never goes idle (a restored tab flooding the main

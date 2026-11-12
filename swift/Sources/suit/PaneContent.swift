@@ -146,8 +146,10 @@ class TerminalPaneContent: PaneContent, LocalProcessTerminalViewDelegate {
         deferredStartDirectory = directory
         // Bytes for a shell that does not exist yet (a recipe, a broadcast, a
         // goal routed to this tab) must not vanish into a pty that was never
-        // opened: start the shell first, and the warm-up gate holds the bytes
-        // until its line editor is up, exactly as it does for fast typing.
+        // opened: start the shell first. (Only programmatic writers get here —
+        // a deferred terminal is never first responder — and their bytes reach
+        // the pty as the shell starts, the same as input typed at a new tab in
+        // its first instant.)
         terminalView.startDeferredShell = { [weak self] in self?.prepareForDisplay() }
     }
 

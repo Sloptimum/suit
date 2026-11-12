@@ -76,7 +76,7 @@ app does.
   on the Dock icon, Finder's **Open With**, and `open -a Suit <path>` all work: a folder
   becomes a window on that project (or brings forward the window already showing it), a file
   becomes a tab in the current window. Suit registers as an *alternate* handler for folders
-  and text, so it never takes over as the default app for either.
+  and text, so it appears under Open With without claiming to be the default app for either.
 - **Standard window behavior** — the App menu has Services, Hide Suit (⌘H), Hide Others (⌥⌘H)
   and Show All; the Window menu has Minimize (⌘M), Zoom and Bring All to Front; **File ▸ Close
   Window** is ⇧⌘W (⌘W still closes the tab); the Help menu's search field finds any menu
