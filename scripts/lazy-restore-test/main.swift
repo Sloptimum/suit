@@ -101,9 +101,11 @@ controller.activate(tabs[1]); pump(1.5)
 check(terminals[1].shellPid > 0 && started() == 2, "a background shell starts when shown, and only it", "\(started())")
 
 // Input for a shell nobody has looked at starts it instead of vanishing.
-terminals[2].terminalView.send(txt: "echo deferred-ok\n"); pump(2.5)
+// Arithmetic, so the answer on screen can only come from a shell that ran the
+// line — the tty's own echo of the typed bytes never contains it.
+terminals[2].terminalView.send(txt: "echo deferred-$((6*7))\n"); pump(2.5)
 let screen = String(decoding: terminals[2].terminalView.getTerminal().getBufferAsData(), as: UTF8.self)
-check(terminals[2].shellPid > 0 && screen.contains("deferred-ok"), "input starts a deferred shell and reaches it")
+check(terminals[2].shellPid > 0 && screen.contains("deferred-42"), "input starts a deferred shell and reaches it")
 
 // The file tree's click on a tab that was never shown is that tab's deferred
 // load, saved line included — not a fresh load at the top.
